@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 
+import '../../core/initials_avatar.dart';
 import '../../core/theme.dart';
 import '../../models/circle.dart';
 
@@ -906,7 +907,7 @@ class _ConfirmedChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _InitialsAvatar(name: contact.displayName ?? '?', index: 0, size: 24, scheme: scheme),
+          InitialsAvatar(name: contact.displayName ?? '?', size: 24),
           const SizedBox(width: 6),
           Text(
             contact.displayName ?? 'Unnamed',
@@ -973,11 +974,10 @@ class _SuggestedContactRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _InitialsAvatar(
+          InitialsAvatar(
             name: contact.displayName ?? '?',
-            index: index,
+            paletteIndex: index,
             size: 40,
-            scheme: scheme,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1021,54 +1021,6 @@ class _SuggestedContactRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _InitialsAvatar extends StatelessWidget {
-  const _InitialsAvatar({
-    required this.name,
-    required this.index,
-    required this.size,
-    required this.scheme,
-  });
-
-  final String name;
-  final int index;
-  final double size;
-  final ColorScheme scheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = [
-      (scheme.secondaryFixed, scheme.onSecondaryFixed),
-      (scheme.primaryFixed, scheme.onPrimaryFixed),
-      (scheme.secondaryContainer.withValues(alpha: 0.4), scheme.onSecondaryContainer),
-      (scheme.tertiaryContainer.withValues(alpha: 0.4), scheme.onTertiaryContainer),
-      (scheme.primaryContainer.withValues(alpha: 0.3), scheme.onPrimaryContainer),
-    ];
-    final (background, foreground) = palette[index % palette.length];
-
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-      child: Text(
-        _initials(name),
-        style: TextStyle(
-          fontSize: size * 0.35,
-          fontWeight: FontWeight.bold,
-          color: foreground,
-        ),
-      ),
-    );
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
   }
 }
 

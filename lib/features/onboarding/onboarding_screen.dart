@@ -77,7 +77,7 @@ class _BrandHeader extends StatelessWidget {
               height: 80,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceCard,
+                color: scheme.surfaceCard,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -87,7 +87,11 @@ class _BrandHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(Icons.savings_rounded, color: scheme.primary, size: 40),
+              child: Icon(
+                Icons.savings_rounded,
+                color: scheme.primary,
+                size: 40,
+              ),
             ),
             Positioned(
               top: -4,
@@ -106,7 +110,11 @@ class _BrandHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(Icons.auto_awesome, size: 13, color: scheme.onSecondaryFixed),
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 13,
+                  color: scheme.onSecondaryFixed,
+                ),
               ),
             ),
           ],
@@ -137,7 +145,9 @@ class _BrandHeader extends StatelessWidget {
             'Rebuilding traditional Ajo and Esusu circles for modern trust '
             'and automated payouts.',
             textAlign: TextAlign.center,
-            style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            style: textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -156,7 +166,7 @@ class _IllustrationCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -170,7 +180,7 @@ class _IllustrationCard extends StatelessWidget {
         children: [
           _CircleIllustration(scheme: scheme),
           const SizedBox(height: 8),
-          _SocialProofPill(scheme: scheme),
+          _InviteHintPill(scheme: scheme),
         ],
       ),
     );
@@ -297,7 +307,7 @@ class _PotGlow extends StatelessWidget {
       height: 84,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.backgroundWarm,
+        color: scheme.backgroundWarm,
         boxShadow: [
           BoxShadow(
             color: scheme.secondaryContainer.withValues(alpha: 0.35),
@@ -347,7 +357,12 @@ class _OrbitRingsPainter extends CustomPainter {
     canvas.drawCircle(center, radius, solidPaint);
   }
 
-  void _drawDashedCircle(Canvas canvas, Offset center, double radius, Paint paint) {
+  void _drawDashedCircle(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    Paint paint,
+  ) {
     const dashDegrees = 8.0;
     const gapDegrees = 10.0;
     var angleDegrees = 0.0;
@@ -369,8 +384,8 @@ class _OrbitRingsPainter extends CustomPainter {
       oldDelegate.dashed != dashed || oldDelegate.solid != solid;
 }
 
-class _SocialProofPill extends StatelessWidget {
-  const _SocialProofPill({required this.scheme});
+class _InviteHintPill extends StatelessWidget {
+  const _InviteHintPill({required this.scheme});
 
   final ColorScheme scheme;
 
@@ -393,11 +408,19 @@ class _SocialProofPill extends StatelessWidget {
                 _initialAvatar('A', scheme.primary, scheme.onPrimary),
                 Positioned(
                   left: 16,
-                  child: _initialAvatar('Z', scheme.secondary, scheme.onSecondary),
+                  child: _initialAvatar(
+                    'Z',
+                    scheme.secondary,
+                    scheme.onSecondary,
+                  ),
                 ),
                 Positioned(
                   left: 32,
-                  child: _initialAvatar('M', scheme.tertiaryContainer, scheme.onTertiary),
+                  child: _initialAvatar(
+                    'M',
+                    scheme.tertiaryContainer,
+                    scheme.onTertiary,
+                  ),
                 ),
               ],
             ),
@@ -405,7 +428,7 @@ class _SocialProofPill extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              '1,420+ successful payout rounds completed',
+              'Invite friends and start your first circle together',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurface,
                     fontWeight: FontWeight.w600,
@@ -425,7 +448,11 @@ class _SocialProofPill extends StatelessWidget {
       decoration: BoxDecoration(shape: BoxShape.circle, color: background),
       child: Text(
         letter,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: foreground),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: foreground,
+        ),
       ),
     );
   }
@@ -446,7 +473,8 @@ class _ValueHighlights extends StatelessWidget {
           iconColor: scheme.primary,
           icon: Icons.verified_user,
           title: 'Automated Protection',
-          subtitle: 'Locked round rules guarantee zero missed contributions or delays.',
+          subtitle:
+              'Locked round rules guarantee zero missed contributions or delays.',
           textTheme: textTheme,
           scheme: scheme,
         ),
@@ -456,7 +484,8 @@ class _ValueHighlights extends StatelessWidget {
           iconColor: scheme.secondary,
           icon: Icons.bolt,
           title: 'Instant Direct Payouts',
-          subtitle: 'Your turn comes, your pot lands instantly with complete transparency.',
+          subtitle:
+              'Your turn comes, your pot lands instantly with complete transparency.',
           textTheme: textTheme,
           scheme: scheme,
         ),
@@ -466,7 +495,8 @@ class _ValueHighlights extends StatelessWidget {
           iconColor: scheme.onSurface,
           icon: Icons.diversity_3,
           title: 'Save with Friends & Family',
-          subtitle: 'Form private circles with trusted peers or join verified neighborhood groups.',
+          subtitle:
+              'Form private circles with trusted peers or join verified neighborhood groups.',
           textTheme: textTheme,
           scheme: scheme,
         ),
@@ -500,7 +530,7 @@ class _ValueHighlightTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -532,7 +562,9 @@ class _ValueHighlightTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -560,12 +592,17 @@ class _ConnectWalletButton extends ConsumerWidget {
           backgroundColor: scheme.primaryContainer,
           foregroundColor: scheme.onPrimary,
         ),
-        onPressed: isLoading ? null : () => ref.read(walletSessionProvider.notifier).connect(),
+        onPressed: isLoading
+            ? null
+            : () => ref.read(walletSessionProvider.notifier).connect(),
         icon: isLoading
             ? SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: scheme.onPrimary,
+                ),
               )
             : const Icon(Icons.account_balance_wallet),
         label: Text(isLoading ? 'Connecting securely…' : 'Connect Wallet'),
@@ -592,7 +629,9 @@ class _NonCustodialNote extends StatelessWidget {
           child: Text(
             'No transaction fees to start. Your funds remain non-custodial and protected.',
             textAlign: TextAlign.center,
-            style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            style: textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

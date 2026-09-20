@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/circle.dart';
+import '../models/invite.dart';
 import '../services/circle_repository.dart';
+import '../services/invite_repository.dart';
 import '../services/rpc_service.dart';
 import '../services/wallet_service.dart';
 import 'mwa_session_manager.dart';
@@ -23,6 +25,11 @@ final rpcServiceProvider = Provider<RpcService>((ref) => RpcService());
 /// repository once the Anchor program exists — every screen reading
 /// circles goes through this provider, not the concrete class.
 final circleRepositoryProvider = Provider<CircleRepository>((ref) => MockCircleRepository());
+
+/// Same swap-later story as [circleRepositoryProvider]: today an invite
+/// code always resolves to the same demo preview; later this resolves a
+/// real invite (on-chain PDA or off-chain link service).
+final inviteRepositoryProvider = Provider<InviteRepository>((ref) => MockInviteRepository());
 
 // --- Wallet connection state ---
 
@@ -80,4 +87,9 @@ final myCirclesProvider = FutureProvider.autoDispose<List<Circle>>((ref) async {
 final circleByIdProvider = FutureProvider.autoDispose.family<Circle?, String>((ref, id) async {
   final repo = ref.watch(circleRepositoryProvider);
   return repo.getCircleById(id);
+});
+
+final inviteByCodeProvider = FutureProvider.autoDispose.family<CircleInvite?, String>((ref, code) async {
+  final repo = ref.watch(inviteRepositoryProvider);
+  return repo.resolveCode(code);
 });

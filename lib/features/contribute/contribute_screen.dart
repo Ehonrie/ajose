@@ -165,7 +165,7 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
+          color: scheme.surfaceCard,
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 4)),
           ],
@@ -516,7 +516,7 @@ class _SuccessCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(color: scheme.primary.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 6)),

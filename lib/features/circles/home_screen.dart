@@ -12,6 +12,8 @@ import '../../core/theme.dart';
 import '../../models/circle.dart';
 import '../contribute/contribute_screen.dart';
 import '../create_circle/create_circle_screen.dart';
+import '../join_circle/join_invite_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 import 'circle_detail_screen.dart';
 
@@ -33,6 +35,42 @@ void _showComingSoon(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
+/// Prompts for an invite code, then previews it on [JoinInviteScreen].
+/// [MockInviteRepository] resolves any non-empty code to the same demo
+/// invite for now — there's no real invite-link/code backend yet.
+Future<void> _showEnterCodeDialog(BuildContext context) async {
+  final controller = TextEditingController();
+  final code = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Enter Invite Code'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.characters,
+        decoration: const InputDecoration(hintText: 'e.g. FAMILY2024'),
+        onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+          child: const Text('Preview'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+
+  if (code == null || code.trim().isEmpty || !context.mounted) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => JoinInviteScreen(code: code.trim())),
+  );
+}
+
 /// Whether this round is paid up, needs an overdue nudge, or is normally
 /// in-progress — drives the small status pill both circle cards share.
 Widget _fundingStatusPill(Circle circle, ColorScheme scheme, TextTheme textTheme) {
@@ -52,7 +90,7 @@ Widget _fundingStatusPill(Circle circle, ColorScheme scheme, TextTheme textTheme
   } else if (hasOverdue) {
     label = 'Needs Attention • $paid/$total Paid';
     background = scheme.error.withValues(alpha: 0.1);
-    foreground = AppTheme.statusOverdue;
+    foreground = scheme.statusOverdue;
     icon = null;
   } else {
     label = 'On Track • $paid/$total Paid';
@@ -404,7 +442,7 @@ class _GreetingCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
+          color: scheme.surfaceCard,
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 14, offset: const Offset(0, 3)),
           ],
@@ -538,7 +576,7 @@ class _FeaturedCircleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.surfaceCard,
+      color: scheme.surfaceCard,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -700,7 +738,7 @@ class _CompactCircleCard extends StatelessWidget {
     final overflow = circle.members.length - visible.length;
 
     return Material(
-      color: AppTheme.surfaceCard,
+      color: scheme.surfaceCard,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -766,7 +804,7 @@ class _CompactCircleCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: scheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.surfaceCard, width: 2),
+                                  border: Border.all(color: scheme.surfaceCard, width: 2),
                                 ),
                                 child: Text(
                                   '+$overflow',
@@ -835,7 +873,7 @@ class _CompactCircleCard extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.surfaceCard, width: 2),
+        border: Border.all(color: scheme.surfaceCard, width: 2),
         boxShadow: isRecipient
             ? [BoxShadow(color: scheme.secondaryContainer.withValues(alpha: 0.6), blurRadius: 10)]
             : null,
@@ -921,11 +959,11 @@ class _InviteCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: AppTheme.surfaceCard,
+                    backgroundColor: scheme.surfaceCard,
                     foregroundColor: scheme.primary,
                     side: BorderSide.none,
                   ),
-                  onPressed: () => _showComingSoon(context, 'Joining by invite code is coming soon.'),
+                  onPressed: () => _showEnterCodeDialog(context),
                   icon: const Icon(Icons.key, size: 18),
                   label: const Text('Enter Code'),
                 ),
@@ -954,7 +992,7 @@ class _BottomNav extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, -2)),
         ],
@@ -974,10 +1012,12 @@ class _BottomNav extends StatelessWidget {
               ),
               _NavItem(
                 icon: Icons.dynamic_feed,
-                label: 'Feed',
+                label: 'Activity',
                 selected: false,
                 scheme: scheme,
-                onTap: () => _showComingSoon(context, 'The activity feed is coming soon.'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
               ),
               GestureDetector(
                 onTap: () => Navigator.of(context).push(
@@ -997,6 +1037,15 @@ class _BottomNav extends StatelessWidget {
                 selected: false,
                 scheme: scheme,
                 onTap: () => _showComingSoon(context, 'A dedicated savings view is coming soon.'),
+              ),
+              _NavItem(
+                icon: Icons.notifications,
+                label: 'Alerts',
+                selected: false,
+                scheme: scheme,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
               ),
             ],
           ),

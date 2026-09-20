@@ -13,6 +13,10 @@ const _kWeekdayNames = [
 
 String formatShortDate(DateTime d) => '${_kMonthAbbrev[d.month - 1]} ${d.day}';
 
+/// "Thursday, Nov 21" — a full weekday-plus-date, for when a date is a
+/// headline element rather than a small caption.
+String formatWeekdayDate(DateTime d) => '${_kWeekdayNames[d.weekday - 1]}, ${formatShortDate(d)}';
+
 /// "Next Friday" if within a week, otherwise a short date — for a date far
 /// enough out that `Next <weekday>` would be ambiguous.
 String formatUpcoming(DateTime d) {
@@ -35,4 +39,17 @@ String formatRelativeDays(DateTime date) {
   if (diff <= 0) return 'today';
   if (diff == 1) return 'tomorrow';
   return '$diff days';
+}
+
+/// "2h ago" / "Yesterday" / "3 days ago" — for a timestamp in the past, as
+/// used in an activity feed. Falls back to a short date once it's more
+/// than a week old.
+String formatRelativeTime(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays == 1) return 'Yesterday';
+  if (diff.inDays < 7) return '${diff.inDays} days ago';
+  return formatShortDate(time);
 }

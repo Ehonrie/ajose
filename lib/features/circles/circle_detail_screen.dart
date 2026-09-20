@@ -118,7 +118,7 @@ class _ContextHeaderCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
+          color: scheme.surfaceCard,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -262,7 +262,7 @@ class _RotationCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -333,7 +333,7 @@ class _RecipientSpotlight extends StatelessWidget {
       height: 108,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4)),
@@ -428,7 +428,7 @@ class _UpNextBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceCard,
+              color: scheme.surfaceCard,
               borderRadius: BorderRadius.circular(999),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 2)],
             ),
@@ -459,7 +459,7 @@ class _CountdownCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2)),
@@ -556,7 +556,7 @@ class _MemberListSection extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: Container(
-            color: AppTheme.surfaceCard,
+            color: scheme.surfaceCard,
             child: Column(
               children: [
                 for (var i = 0; i < circle.members.length; i++) ...[
@@ -606,7 +606,7 @@ class _MemberRow extends StatelessWidget {
     } else if (member.status == MemberPaymentStatus.overdue) {
       rowColor = scheme.errorContainer.withValues(alpha: 0.3);
     } else {
-      rowColor = index.isEven ? AppTheme.surfaceCard : scheme.surfaceContainerLow.withValues(alpha: 0.4);
+      rowColor = index.isEven ? scheme.surfaceCard : scheme.surfaceContainerLow.withValues(alpha: 0.4);
     }
 
     return Container(
@@ -684,7 +684,7 @@ class _MemberRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.surfaceCard, width: 1.5),
+        border: Border.all(color: scheme.surfaceCard, width: 1.5),
       ),
       child: Icon(icon, size: 9, color: foreground),
     );
@@ -704,14 +704,14 @@ class _MemberRow extends StatelessWidget {
   Color _subtitleColor() => switch (member.status) {
         MemberPaymentStatus.paid => scheme.onSurfaceVariant,
         MemberPaymentStatus.pending => scheme.secondary,
-        MemberPaymentStatus.overdue => AppTheme.statusOverdue,
+        MemberPaymentStatus.overdue => scheme.statusOverdue,
       };
 
   Widget _statusPill() {
     final (label, background, foreground) = switch (member.status) {
       MemberPaymentStatus.paid => ('Paid', scheme.primary.withValues(alpha: 0.1), scheme.primary),
       MemberPaymentStatus.pending => ('Pending', scheme.secondary.withValues(alpha: 0.15), scheme.secondary),
-      MemberPaymentStatus.overdue => ('Overdue', scheme.error.withValues(alpha: 0.1), AppTheme.statusOverdue),
+      MemberPaymentStatus.overdue => ('Overdue', scheme.error.withValues(alpha: 0.1), scheme.statusOverdue),
     };
     final icon = switch (member.status) {
       MemberPaymentStatus.paid => Icons.check_circle,
@@ -756,7 +756,7 @@ class _BottomCta extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundWarm,
+        color: scheme.backgroundWarm,
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, -4)),
         ],

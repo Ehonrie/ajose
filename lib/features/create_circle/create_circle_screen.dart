@@ -266,11 +266,12 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
+        color: scheme.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -647,7 +648,7 @@ class _FrequencySegmented extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: value == entry.key ? AppTheme.surfaceCard : Colors.transparent,
+                    color: value == entry.key ? scheme.surfaceCard : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: value == entry.key
                         ? [
@@ -685,7 +686,7 @@ class _StepperButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.surfaceCard,
+      color: scheme.surfaceCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

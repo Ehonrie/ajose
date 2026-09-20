@@ -82,7 +82,7 @@ class RotationRing extends StatelessWidget {
         decoration: BoxDecoration(
           color: scheme.secondaryFixedDim,
           shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.backgroundWarm, width: 2),
+          border: Border.all(color: scheme.backgroundWarm, width: 2),
         ),
         child: Text(
           'YOU',

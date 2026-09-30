@@ -53,10 +53,11 @@ class AppConfig {
   /// else) to move to testnet/mainnet-beta later.
   static const SolanaCluster cluster = SolanaCluster.devnet;
 
-  // --- Dapp identity, sent to the wallet app during MWA authorize() ---
-  static final Uri identityUri = Uri.parse('https://ajose.app');
-  static final Uri iconUri = Uri.parse('favicon.ico');
-  static const String identityName = 'Ajose';
+  // Dapp identity (identityUri/iconUri/identityName) lives natively in
+  // MainActivity.kt now, not here — MWA 2.0's ConnectionIdentity is
+  // constructed once on the native side as part of the direct
+  // clientlib-ktx integration (see MainActivity's doc comment for why),
+  // rather than passed across the platform channel per call.
 
   // --- Devnet USDC ---
   // Circle's official devnet USDC-Dev mint (mintable via the devnet USDC

@@ -19,13 +19,6 @@
          in by the plugin. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Mobile Wallet Adapter: the com.solanamobile:mobile-wallet-adapter-clientlib
-         AAR (pulled in by solana_mobile_client) already merges the required
-         <queries> entry for android.intent.action.VIEW + solana-wallet://
-         scheme so the app can detect/launch installed MWA wallet apps (e.g.
-         the Seeker/Saga default wallet) under Android 11+ package-visibility
-         rules. No manual queries block needed here. -->
-
     <application
         android:label="ajose"
         android:name="${applicationName}"
@@ -67,6 +60,16 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Mobile Wallet Adapter: lets the app detect/launch installed
+             MWA-compatible wallet apps (Solflare, Phantom, the Seeker/Saga
+             default wallet, etc) under Android 11+ package-visibility rules.
+             Previously auto-merged by the solana_mobile_client plugin's AAR;
+             now declared explicitly since that package was replaced with a
+             direct clientlib-ktx integration (MWA 2.0) in MainActivity. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="solana-wallet"/>
         </intent>
     </queries>
 </manifest>

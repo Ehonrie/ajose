@@ -363,7 +363,7 @@ class _OrbitRingsPainter extends CustomPainter {
     double radius,
     Paint paint,
   ) {
-    const dashDegrees = 8.0;
+    const dashDegrees = 8.0; 
     const gapDegrees = 10.0;
     var angleDegrees = 0.0;
     final rect = Rect.fromCircle(center: center, radius: radius);
@@ -531,7 +531,7 @@ class _ValueHighlightTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: scheme.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),          
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),

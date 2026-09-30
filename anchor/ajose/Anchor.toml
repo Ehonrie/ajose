@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-ajose = "GZVETsxCKj5HqHcxjYBEDK8FdTYYbbWH88UN3nBu5iMJ"
+ajose = "6F6jhojAyf5ksvSpERBUwFKnBXSR5DUdcCxThDdSZgta"
 
 [programs.devnet]
-ajose = "GZVETsxCKj5HqHcxjYBEDK8FdTYYbbWH88UN3nBu5iMJ"
+ajose = "6F6jhojAyf5ksvSpERBUwFKnBXSR5DUdcCxThDdSZgta"
 
 [registry]
 url = "https://api.apr.dev"

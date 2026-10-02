@@ -1,4 +1,5 @@
 import 'package:solana/dto.dart';
+import 'package:solana/encoder.dart';
 import 'package:solana/solana.dart';
 
 import '../core/constants.dart';
@@ -69,6 +70,52 @@ class RpcService {
       solLamports: results[0] as int,
       usdc: results[1] as double?,
     );
+  }
+
+  Future<String> getLatestBlockhash() async {
+    final response = await client.rpcClient.getLatestBlockhash();
+    return response.value.blockhash;
+  }
+
+  Future<void> waitForSignatureStatus(String signature) async {
+    await client.waitForSignatureStatus(
+      signature,
+      status: Commitment.confirmed,
+    );
+  }
+
+  List<int> buildTransferTransaction({
+    required Ed25519HDPublicKey from,
+    required Ed25519HDPublicKey to,
+    required int lamports,
+    required String recentBlockhash,
+  }) {
+    final instruction = SystemInstruction.transfer(
+      fundingAccount: from,
+      recipientAccount: to,
+      lamports: lamports,
+    );
+
+    final message = Message(instructions: [instruction]);
+    final compiledMessage = message.compile(
+      recentBlockhash: recentBlockhash,
+      feePayer: from,
+    );
+
+    final zeroSignatures = List.generate(
+      compiledMessage.header.numRequiredSignatures,
+      (i) => Signature(
+        List<int>.filled(64, 0),
+        publicKey: compiledMessage.accountKeys[i],
+      ),
+    );
+
+    final signedTx = SignedTx(
+      signatures: zeroSignatures,
+      compiledMessage: compiledMessage,
+    );
+
+    return signedTx.toByteArray().toList();
   }
 
   static double _pow10(int exponent) {

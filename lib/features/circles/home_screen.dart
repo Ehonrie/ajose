@@ -16,6 +16,7 @@ import '../join_circle/join_invite_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 import 'circle_detail_screen.dart';
+import 'send_sol_sheet.dart';
 
 String _frequencyLabel(ContributionFrequency f) => switch (f) {
       ContributionFrequency.weekly => 'weekly',
@@ -284,6 +285,18 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        SendSolSheet.show(context, session);
+                      },
+                      icon: const Icon(Icons.send_rounded),
+                      label: const Text('Send SOL'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(

@@ -76,6 +76,16 @@ class MainActivity : FlutterFragmentActivity() {
                             result.success(null)
                         }
                     }
+                    "signAndSendTransactions" -> {
+                        val transactions = call.argument<List<ByteArray>>("transactions")
+                        if (transactions == null || transactions.isEmpty()) {
+                            result.error("INVALID_ARGUMENT", "Transactions list cannot be empty", null)
+                            return@setMethodCallHandler
+                        }
+                        walletAdapter.authToken = call.argument("authToken")
+                        walletAdapter.blockchain = blockchainFor(call.argument("cluster"))
+                        signAndSend(transactions, result)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -106,6 +116,28 @@ class MainActivity : FlutterFragmentActivity() {
                             "publicKey" to auth.publicKey,
                             "accountLabel" to auth.accountLabel,
                             "walletUriBase" to auth.walletUriBase?.toString(),
+                        )
+                    )
+                }
+                is TransactionResult.NoWalletFound ->
+                    result.error("NO_WALLET_FOUND", outcome.message, null)
+                is TransactionResult.Failure ->
+                    result.error("MWA_FAILURE", outcome.message, null)
+            }
+        }
+    }
+
+    private fun signAndSend(transactions: List<ByteArray>, result: MethodChannel.Result) {
+        mwaScope.launch {
+            when (val outcome = walletAdapter.transact(activityResultSender) { _ ->
+                signAndSendTransactions(transactions.toTypedArray())
+            }) {
+                is TransactionResult.Success -> {
+                    val signatures = outcome.payload.signatures.toList()
+                    result.success(
+                        mapOf(
+                            "signatures" to signatures,
+                            "authToken" to outcome.authResult.authToken,
                         )
                     )
                 }

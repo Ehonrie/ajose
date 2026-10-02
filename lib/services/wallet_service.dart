@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:solana/base58.dart';
 import 'package:solana/solana.dart';
 
 import '../core/constants.dart';
@@ -133,19 +134,63 @@ class WalletService {
     }
   }
 
-  /// Signs and sends a raw transaction via the wallet.
-  ///
-  /// Not implemented yet — this phase has no Anchor program to build a
-  /// transaction against, so there is nothing real to sign. The native
-  /// side's `AdapterOperations.signAndSendTransactions` is the eventual
-  /// target once the contribute flow needs it.
+  /// Signs and sends a raw wire transaction via the wallet.
   Future<String> signAndSendTransaction(
     WalletSession session,
     List<int> transactionBytes,
   ) async {
-    throw UnimplementedError(
-      'signAndSendTransaction is not wired up yet — no Anchor program to '
-      'build a transaction against.',
+    final signatures = await signAndSendTransactions(session, [transactionBytes]);
+    return signatures.first;
+  }
+
+  /// Signs and sends multiple raw wire transactions via the wallet.
+  Future<List<String>> signAndSendTransactions(
+    WalletSession session,
+    List<List<int>> transactionsBytes,
+  ) async {
+    return _withTimeout(
+      () async {
+        try {
+          final result = await _channel.invokeMapMethod<String, dynamic>(
+            'signAndSendTransactions',
+            {
+              'authToken': session.authToken,
+              'cluster': AppConfig.cluster.mwaClusterName,
+              'transactions': transactionsBytes
+                  .map((tx) => Uint8List.fromList(tx))
+                  .toList(),
+            },
+          );
+          if (result == null) {
+            throw WalletException('Wallet returned an empty response.');
+          }
+          final newAuthToken = result['authToken'] as String?;
+          if (newAuthToken != null &&
+              newAuthToken.isNotEmpty &&
+              newAuthToken != session.authToken) {
+            final updatedSession = session.copyWith(authToken: newAuthToken);
+            await _sessionManager.save(updatedSession);
+          }
+          final rawSignatures = (result['signatures'] as List<dynamic>?)
+              ?.cast<Uint8List>();
+          if (rawSignatures == null || rawSignatures.isEmpty) {
+            throw WalletException('Wallet returned no transaction signatures.');
+          }
+          return rawSignatures.map((sig) => base58encode(sig)).toList();
+        } on PlatformException catch (e) {
+          if (e.code == 'NO_WALLET_FOUND') {
+            throw WalletException(
+              'No Mobile Wallet Adapter-compatible wallet app was found on '
+              'this device.',
+            );
+          }
+          throw WalletException(
+            e.message ?? 'Transaction signing was cancelled or rejected.',
+          );
+        }
+      },
+      timeout: const Duration(seconds: 120),
+      timeoutMessage: 'Transaction signing timed out. Please check your wallet app.',
     );
   }
 }

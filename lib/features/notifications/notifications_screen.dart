@@ -301,6 +301,7 @@ class _DueReminderBanner extends StatelessWidget {
                   children: [
                     FilledButton(
                       style: FilledButton.styleFrom(
+                        minimumSize: Size.zero,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                       ),

@@ -87,7 +87,11 @@ class SlotSwapSentScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep request')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Cancel it')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: Size.zero),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancel it'),
+          ),
         ],
       ),
     );

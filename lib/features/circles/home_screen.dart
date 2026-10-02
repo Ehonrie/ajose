@@ -58,6 +58,7 @@ Future<void> _showEnterCodeDialog(BuildContext context) async {
           child: const Text('Cancel'),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(minimumSize: Size.zero),
           onPressed: () => Navigator.of(dialogContext).pop(controller.text),
           child: const Text('Preview'),
         ),
@@ -234,9 +235,9 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
-  void _showWalletSheet(BuildContext context, WidgetRef ref, WalletSession session) {
+  void _showWalletSheet(BuildContext rootContext, WidgetRef ref, WalletSession session) {
     showModalBottomSheet<void>(
-      context: context,
+      context: rootContext,
       builder: (sheetContext) => Consumer(
         builder: (context, ref, _) {
           final balancesAsync = ref.watch(walletBalancesProvider);
@@ -290,7 +291,7 @@ class HomeScreen extends ConsumerWidget {
                     child: FilledButton.icon(
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
-                        SendSolSheet.show(context, session);
+                        SendSolSheet.show(rootContext, session);
                       },
                       icon: const Icon(Icons.send_rounded),
                       label: const Text('Send SOL'),
@@ -302,7 +303,7 @@ class HomeScreen extends ConsumerWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
-                        _disconnect(context, ref);
+                        _disconnect(rootContext, ref);
                       },
                       icon: const Icon(Icons.logout),
                       label: const Text('Disconnect Wallet'),
@@ -655,6 +656,7 @@ class _FeaturedCircleCard extends StatelessWidget {
                     ),
                     FilledButton(
                       style: FilledButton.styleFrom(
+                        minimumSize: Size.zero,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                       ),

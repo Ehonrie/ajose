@@ -22,7 +22,7 @@ class SplashView extends ConsumerStatefulWidget {
 }
 
 class _SplashViewState extends ConsumerState<SplashView> {
-  static const _logoAsset = 'assets/images/app_icon.jpeg';
+  static const _logoAsset = 'assets/images/logo.png';
 
   @override
   void initState() {

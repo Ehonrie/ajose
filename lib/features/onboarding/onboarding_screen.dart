@@ -87,10 +87,10 @@ class _BrandHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.savings_rounded,
-                color: scheme.primary,
-                size: 40,
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 40,
+                height: 40,
               ),
             ),
             Positioned(
@@ -324,7 +324,7 @@ class _PotGlow extends StatelessWidget {
             shape: BoxShape.circle,
             color: scheme.secondaryContainer.withValues(alpha: 0.2),
           ),
-          child: Icon(Icons.savings_rounded, color: scheme.secondary, size: 30),
+          child: Image.asset('assets/images/logo.png', width: 30, height: 30),
         ),
       ),
     );

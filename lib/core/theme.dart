@@ -284,7 +284,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: textTheme.headlineMedium,
+          textStyle: textTheme.titleMedium,
         ),
       ),
     );

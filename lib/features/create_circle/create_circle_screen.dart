@@ -1083,7 +1083,7 @@ class _LaunchButton extends StatelessWidget {
             ),
             onPressed: onLaunch,
             icon: const Icon(Icons.arrow_forward),
-            label: const Text('Launch Circle & Send Invites'),
+            label: const Text('Launch Circle'),
           ),
         ),
         const SizedBox(height: 10),

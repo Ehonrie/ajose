@@ -154,7 +154,7 @@ class HomeScreen extends ConsumerWidget {
         titleSpacing: 16,
         title: Row(
           children: [
-            Icon(Icons.savings_rounded, color: scheme.primary, size: 28),
+            Image.asset('assets/images/logo.png', width: 28, height: 28),
             const SizedBox(width: 8),
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -1017,18 +1017,6 @@ class _BottomNav extends StatelessWidget {
                 scheme: scheme,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CreateCircleScreen()),
-                ),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
-                  child: Icon(Icons.add, color: scheme.onPrimary),
                 ),
               ),
               _NavItem(

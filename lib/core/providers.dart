@@ -39,10 +39,9 @@ final walletSessionProvider =
 class WalletSessionNotifier extends AsyncNotifier<WalletSession?> {
   @override
   Future<WalletSession?> build() async {
-    // On app start, try to silently restore a previously-approved session
-    // (persisted auth token) before ever showing the Onboarding screen.
-    final service = ref.watch(walletServiceProvider);
-    return service.reauthorize();
+    // Always start disconnected — the wallet should prompt for approval
+    // every time the user connects, not silently restore a past session.
+    return null;
   }
 
   Future<void> connect() async {

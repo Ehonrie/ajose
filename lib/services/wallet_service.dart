@@ -62,8 +62,9 @@ class WalletService {
   }
 
   /// Returns the last-persisted session without talking to the wallet.
-  /// Callers should still confirm it's live via [reauthorize] before
-  /// relying on it for anything beyond an optimistic "connecting…" UI.
+  /// This is a cached value only — it may be stale or revoked wallet-side,
+  /// so callers should treat it as optimistic display data, not a live
+  /// session; use [authorize] to establish a real, approved connection.
   Future<WalletSession?> loadPersistedSession() => _sessionManager.load();
 
   WalletSession _sessionFromResult(Map<Object?, Object?> result) {
@@ -112,39 +113,6 @@ class WalletService {
           'compatible wallet app is installed and able to respond, then '
           'try again.',
     );
-  }
-
-  /// Silently re-establishes a previously authorized session (no approval
-  /// UI shown to the user, unless the wallet decides the token is stale).
-  /// Returns null if there's nothing persisted, no wallet app is reachable,
-  /// or the wallet has revoked the token — in every such case the caller
-  /// should fall back to [authorize].
-  Future<WalletSession?> reauthorize() async {
-    final stored = await _sessionManager.load();
-    if (stored == null) return null;
-    if (!await isWalletAvailable()) return null;
-
-    try {
-      return await _withTimeout(
-        () async {
-          final result = await _channel.invokeMethod<Map<Object?, Object?>>(
-            'reauthorize',
-            {'authToken': stored.authToken, 'cluster': AppConfig.cluster.mwaClusterName},
-          );
-          final session = _sessionFromResult(result!);
-          await _sessionManager.save(session);
-          return session;
-        },
-        // Shorter than authorize()'s — this runs silently on every app
-        // launch, so fail fast to Onboarding rather than leaving the user
-        // stuck on the startup loading screen.
-        timeout: const Duration(seconds: 12),
-        timeoutMessage: 'Silent reauthorization timed out.',
-      );
-    } catch (_) {
-      await _sessionManager.clear();
-      return null;
-    }
   }
 
   /// Best-effort: the local session is cleared regardless of whether the

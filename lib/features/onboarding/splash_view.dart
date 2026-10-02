@@ -8,12 +8,12 @@ import '../circles/home_screen.dart';
 import 'onboarding_screen.dart';
 
 /// First thing shown on launch: brand mark on the icon's own background
-/// while [walletSessionProvider] silently tries to restore a previously
-/// approved wallet session, then routes to Home or Onboarding accordingly.
+/// while [walletSessionProvider] resolves (always to null — no wallet
+/// session is restored automatically), then routes to Onboarding.
 ///
 /// Replaces the bare `CircularProgressIndicator` that used to cover this gap
 /// in `_RootRouter` — same routing decision, just branded, and with a
-/// minimum on-screen duration so a fast reauthorize doesn't just flash by.
+/// minimum on-screen duration so it doesn't just flash by.
 class SplashView extends ConsumerStatefulWidget {
   const SplashView({super.key});
 
@@ -36,12 +36,9 @@ class _SplashViewState extends ConsumerState<SplashView> {
   Future<void> _restoreSessionAndNavigate() async {
     final stopwatch = Stopwatch()..start();
 
-    // Same reauthorize flow _RootRouter used to watch — awaiting the
-    // provider's future either returns its already-resolved value or waits
-    // out the in-flight `WalletService.reauthorize()` call. That call
-    // already times out and falls back to null on failure (see
-    // wallet_service.dart), so this never hangs; the extra catch below is
-    // only for the unexpected-error case the old router also guarded.
+    // Same provider _RootRouter used to watch — this always resolves to
+    // null (see walletSessionProvider.build), so the catch below is only
+    // for the unexpected-error case the old router also guarded.
     WalletSession? session;
     try {
       session = await ref.read(walletSessionProvider.future);

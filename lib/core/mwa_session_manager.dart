@@ -3,11 +3,10 @@ import 'package:solana/solana.dart';
 
 import 'constants.dart';
 
-/// An active Mobile Wallet Adapter authorization: the wallet's public key
-/// plus the auth token that lets us skip the connect-approval UI on future
-/// calls (via `reauthorize`), and the wallet's own deep-link base (used to
-/// route association intents straight back to the same wallet app instead
-/// of showing the wallet picker every time).
+/// An active Mobile Wallet Adapter authorization: the wallet's public key,
+/// the auth token from that approval, and the wallet's own deep-link base
+/// (used to route association intents straight back to the same wallet app
+/// instead of showing the wallet picker every time).
 class WalletSession {
   const WalletSession({
     required this.authToken,
@@ -45,9 +44,11 @@ class WalletSession {
 }
 
 /// Persists the current [WalletSession] in the platform secure storage
-/// (Android Keystore-backed EncryptedSharedPreferences) so a user isn't
-/// re-prompted to connect their wallet every time they open the app —
-/// only [WalletService.reauthorize] needs to run on startup.
+/// (Android Keystore-backed EncryptedSharedPreferences). The app no longer
+/// auto-restores from this on startup (every connection re-prompts the
+/// wallet for approval), but it's still written on [WalletService.authorize]
+/// and read by [WalletService.loadPersistedSession] for callers that want an
+/// optimistic "last known wallet" value.
 class MwaSessionManager {
   MwaSessionManager({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
@@ -74,8 +75,7 @@ class MwaSessionManager {
 
   /// Loads whatever was last persisted. This is a *cached* session: the
   /// auth token may have been revoked wallet-side since, so callers should
-  /// still run [WalletService.reauthorize] before trusting it for anything
-  /// beyond showing a "connecting…" placeholder.
+  /// treat it as optimistic display data, not a live, approved connection.
   Future<WalletSession?> load() async {
     final authToken = await _storage.read(key: AppConfig.storageKeyAuthToken);
     final publicKeyBase58 = await _storage.read(key: AppConfig.storageKeyPublicKey);

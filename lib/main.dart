@@ -19,7 +19,7 @@ class AjoseApp extends StatelessWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       // SplashView owns the Onboarding-vs-Home routing decision: it awaits
-      // walletSessionProvider's reauthorize attempt, then replaces itself.
+      // walletSessionProvider's initial resolution, then replaces itself.
       home: const SplashView(),
     );
   }

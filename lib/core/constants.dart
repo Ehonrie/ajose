@@ -63,7 +63,7 @@ class AppConfig {
   // The `ajose` program, deployed to devnet. Swap when deploying to another
   // cluster.
   static const String ajoseProgramId =
-      '6F6jhojAyf5ksvSpERBUwFKnBXSR5DUdcCxThDdSZgta';
+      '3wu1WDSheyZL2Ti6XXEMi59KqqSYBdSvTKMTFQhsJQ8o';
 
   // --- Devnet USDC ---
   // Circle's official devnet USDC-Dev mint (mintable via the devnet USDC

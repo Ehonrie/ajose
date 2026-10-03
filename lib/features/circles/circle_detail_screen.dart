@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/date_formatting.dart';
 import '../../core/initials_avatar.dart';
+import '../../core/mwa_session_manager.dart';
 import '../../core/providers.dart';
 import '../../core/rotation_ring.dart';
 import '../../core/theme.dart';
 import '../../models/circle.dart';
+import '../../services/anchor_service.dart';
+import '../../services/wallet_service.dart';
 import '../contribute/contribute_screen.dart';
 
 class CircleDetailScreen extends ConsumerWidget {
@@ -17,20 +20,104 @@ class CircleDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final circleAsync = ref.watch(circleByIdProvider(circleId));
+    final session = ref.watch(walletSessionProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Circle Details')),
-      body: circleAsync.when(
-        data: (circle) {
-          if (circle == null) {
-            return const Center(child: Text('Circle not found.'));
-          }
-          return _CircleDetailBody(circle: circle);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load circle: $e')),
+      appBar: AppBar(
+        title: const Text('Circle Details'),
+        actions: [
+          if (circleAsync.value case final circle? when _canCancel(circle, session))
+            PopupMenuButton<String>(
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'cancel', child: Text('Cancel Circle')),
+              ],
+              onSelected: (_) => _confirmCancelCircle(context, ref, circle, session!),
+            ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(circleByIdProvider(circleId)),
+        child: circleAsync.when(
+          data: (circle) {
+            if (circle == null) {
+              return const Center(child: Text('Circle not found.'));
+            }
+            return _CircleDetailBody(circle: circle);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Failed to load circle: $e')),
+        ),
       ),
     );
+  }
+
+  /// Only the circle's creator (always seat 0) can cancel, and only before
+  /// any member has contributed — mirrors the on-chain program's own guard,
+  /// so this just decides whether to offer the action at all.
+  bool _canCancel(Circle circle, WalletSession? session) {
+    if (session == null || circle.members.isEmpty) return false;
+    final isCreator = circle.members.first.pubkey == session.address;
+    final alreadyFunded = circle.members.any((m) => m.status == MemberPaymentStatus.paid);
+    return isCreator && !alreadyFunded;
+  }
+
+  Future<void> _confirmCancelCircle(
+    BuildContext context,
+    WidgetRef ref,
+    Circle circle,
+    WalletSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel this circle?'),
+        content: Text(
+          '"${circle.name}" will be closed permanently and its rent refunded '
+          'to you. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep Circle'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancel Circle'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final anchor = ref.read(anchorServiceProvider);
+      final txBytes = await anchor.buildCancelCircleTransaction(
+        authority: session.publicKey,
+        circleId: circle.id,
+      );
+      final walletService = ref.read(walletServiceProvider);
+      await walletService.signAndSendTransaction(session, txBytes);
+
+      ref.invalidate(myCirclesProvider);
+      ref.invalidate(walletBalancesProvider);
+
+      if (context.mounted) {
+        Navigator.of(context).pop(); // dismiss the progress dialog
+        Navigator.of(context).pop(); // back to Home
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // dismiss the progress dialog
+        final message = e is WalletException || e is AnchorException ? e.toString() : 'Could not cancel circle: $e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
   }
 }
 

@@ -390,20 +390,64 @@ class _HomeBody extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (circles.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('No circles yet. Create one to get started.', style: textTheme.bodyMedium),
-          )
+          _EmptyCirclesState(scheme: scheme, textTheme: textTheme)
         else ...[
           if (featured != null) _FeaturedCircleCard(circle: featured, scheme: scheme, textTheme: textTheme),
           for (final circle in rest) ...[
             const SizedBox(height: 16),
             _CompactCircleCard(circle: circle, scheme: scheme, textTheme: textTheme),
           ],
+          const SizedBox(height: 20),
+          _InviteCard(scheme: scheme, textTheme: textTheme),
         ],
-        const SizedBox(height: 20),
-        _InviteCard(scheme: scheme, textTheme: textTheme),
       ],
+    );
+  }
+}
+
+class _EmptyCirclesState extends StatelessWidget {
+  const _EmptyCirclesState({required this.scheme, required this.textTheme});
+
+  final ColorScheme scheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      decoration: BoxDecoration(
+        color: scheme.surfaceCard,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: scheme.primaryFixed, shape: BoxShape.circle),
+            child: Icon(Icons.groups_rounded, color: scheme.onPrimaryFixed, size: 28),
+          ),
+          const SizedBox(height: 16),
+          Text('No circles yet', style: textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Text(
+            'Start a rotating savings circle with people you trust, '
+            'and watch the pot grow together.',
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateCircleScreen()),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('Create a Circle'),
+          ),
+        ],
+      ),
     );
   }
 }

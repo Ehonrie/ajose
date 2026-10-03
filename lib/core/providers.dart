@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/circle.dart';
 import '../models/invite.dart';
+import '../services/anchor_service.dart';
 import '../services/circle_repository.dart';
 import '../services/invite_repository.dart';
 import '../services/rpc_service.dart';
@@ -21,10 +22,13 @@ final walletServiceProvider = Provider<WalletService>((ref) {
 
 final rpcServiceProvider = Provider<RpcService>((ref) => RpcService());
 
-/// Swap this single provider for one returning an on-chain-backed
-/// repository once the Anchor program exists — every screen reading
-/// circles goes through this provider, not the concrete class.
-final circleRepositoryProvider = Provider<CircleRepository>((ref) => MockCircleRepository());
+final anchorServiceProvider = Provider<AnchorService>(
+  (ref) => AnchorService(ref.watch(rpcServiceProvider)),
+);
+
+final circleRepositoryProvider = Provider<CircleRepository>(
+  (ref) => OnChainCircleRepository(ref.watch(rpcServiceProvider)),
+);
 
 /// Same swap-later story as [circleRepositoryProvider]: today an invite
 /// code always resolves to the same demo preview; later this resolves a

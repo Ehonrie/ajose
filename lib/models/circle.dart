@@ -1,17 +1,15 @@
 /// Data shapes for a rotating savings circle ("ajo"/"esusu"/"tanda"-style
-/// pool). These mirror how the eventual Anchor program will most likely lay
-/// out its accounts:
+/// pool), mirroring the deployed Anchor program's own account layout:
 ///
 ///   Circle account  -> one per circle (name, mint, contribution amount,
-///                       cadence, member list / member PDAs, current round)
+///                       cadence, member list, current round)
 ///   Member          -> one per seat in the circle (owner pubkey, whether
 ///                       they've paid the current round, payout position)
 ///
-/// Keeping that shape now — even while every value comes from
-/// [MockCircleRepository] — means the swap to real on-chain reads later is
-/// just a new [CircleRepository] implementation that deserializes account
-/// data into these same classes, not a rewrite of every screen that
-/// consumes them.
+/// `OnChainCircleRepository` (in `services/circle_repository.dart`)
+/// deserializes real account data straight into these classes, so every
+/// screen built against them works unchanged regardless of where the data
+/// came from.
 library;
 
 enum ContributionFrequency {

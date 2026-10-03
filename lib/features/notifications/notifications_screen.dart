@@ -35,16 +35,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
-      body: circlesAsync.when(
-        data: (circles) => _NotificationsBody(
-          circles: circles,
-          selectedCircleId: _selectedCircleId,
-          allRead: _allRead,
-          onSelectCircle: (id) => setState(() => _selectedCircleId = id),
-          onMarkAllRead: () => setState(() => _allRead = true),
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(myCirclesProvider),
+        child: circlesAsync.when(
+          data: (circles) => _NotificationsBody(
+            circles: circles,
+            selectedCircleId: _selectedCircleId,
+            allRead: _allRead,
+            onSelectCircle: (id) => setState(() => _selectedCircleId = id),
+            onMarkAllRead: () => setState(() => _allRead = true),
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Could not load activity: $e')),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Could not load activity: $e')),
       ),
     );
   }

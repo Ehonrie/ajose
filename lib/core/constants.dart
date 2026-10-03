@@ -59,6 +59,12 @@ class AppConfig {
   // clientlib-ktx integration (see MainActivity's doc comment for why),
   // rather than passed across the platform channel per call.
 
+  // --- Deployed Anchor program ---
+  // The `ajose` program, deployed to devnet. Swap when deploying to another
+  // cluster.
+  static const String ajoseProgramId =
+      '6F6jhojAyf5ksvSpERBUwFKnBXSR5DUdcCxThDdSZgta';
+
   // --- Devnet USDC ---
   // Circle's official devnet USDC-Dev mint (mintable via the devnet USDC
   // faucet). Swap for the mainnet USDC mint

@@ -72,6 +72,33 @@ class RpcService {
     );
   }
 
+  /// Raw account bytes for every account owned by [programId]. Used to read
+  /// back Anchor program state (e.g. `Circle` accounts) client-side, since
+  /// there's no generated Dart Anchor client to decode them for us.
+  ///
+  /// Reads at [Commitment.confirmed] rather than the client's default
+  /// [Commitment.finalized] — a circle the user just created should show up
+  /// in a couple of seconds, not the ~15-20s finalization can take.
+  Future<List<ProgramAccount>> getProgramAccountsRaw(String programId) {
+    return client.rpcClient.getProgramAccounts(
+      programId,
+      encoding: Encoding.base64,
+      commitment: Commitment.confirmed,
+    );
+  }
+
+  /// Raw bytes for a single account, or null if it doesn't exist. See
+  /// [getProgramAccountsRaw] for why this reads at [Commitment.confirmed].
+  Future<List<int>?> getAccountDataRaw(String pubkey) async {
+    final result = await client.rpcClient.getAccountInfo(
+      pubkey,
+      encoding: Encoding.base64,
+      commitment: Commitment.confirmed,
+    );
+    final data = result.value?.data;
+    return data is BinaryAccountData ? data.data : null;
+  }
+
   Future<String> getLatestBlockhash() async {
     final response = await client.rpcClient.getLatestBlockhash();
     return response.value.blockhash;

@@ -42,7 +42,7 @@ packages:
     source: hosted
     version: "2.1.2"
   borsh_annotation:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: borsh_annotation
       sha256: dc73a7fdc6fe4505535657daf8ab3cebe382311fae63a0faaf9315ea1bc30bff
@@ -106,7 +106,7 @@ packages:
     source: hosted
     version: "3.1.2"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf

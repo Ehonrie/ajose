@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/initials_avatar.dart';
+import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../models/circle.dart';
+import '../../services/wallet_service.dart';
 
 const List<double> _kContributionPresets = [50, 100, 250, 500];
 const double _kMinContribution = 25;
@@ -21,14 +24,14 @@ const int _kMaxMembers = 20;
 /// this phase proves out the full input flow (rules, presets, member
 /// picking from device contacts) that a real create-circle transaction
 /// will need.
-class CreateCircleScreen extends StatefulWidget {
+class CreateCircleScreen extends ConsumerStatefulWidget {
   const CreateCircleScreen({super.key});
 
   @override
-  State<CreateCircleScreen> createState() => _CreateCircleScreenState();
+  ConsumerState<CreateCircleScreen> createState() => _CreateCircleScreenState();
 }
 
-class _CreateCircleScreenState extends State<CreateCircleScreen> {
+class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
   final _nameController = TextEditingController();
   final _searchController = TextEditingController();
 
@@ -36,6 +39,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
   double _contribution = 100;
   int _memberCount = 8;
 
+  bool _launching = false;
   bool _loadingContacts = false;
   // Whether we've already run the permission+fetch flow at least once —
   // distinguishes "haven't tried yet" from "tried, found nothing" in the UI.
@@ -116,7 +120,12 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
             const SizedBox(height: 16),
             _TrustNotice(scheme: scheme, textTheme: textTheme, memberCount: _memberCount),
             const SizedBox(height: 20),
-            _LaunchButton(scheme: scheme, textTheme: textTheme, onLaunch: _launch),
+            _LaunchButton(
+              scheme: scheme,
+              textTheme: textTheme,
+              submitting: _launching,
+              onLaunch: _launch,
+            ),
           ],
         ),
       ),
@@ -151,28 +160,72 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
     });
   }
 
-  void _launch() {
-    if (_nameController.text.trim().isEmpty) {
+  Future<void> _launch() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Give the circle a name first.')),
       );
       return;
     }
 
+    final session = ref.read(walletSessionProvider).value;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connect your wallet first.')),
+      );
+      return;
+    }
+
+    setState(() => _launching = true);
+    try {
+      final anchor = ref.read(anchorServiceProvider);
+      final result = await anchor.buildCreateCircleTransaction(
+        authority: session.publicKey,
+        name: name,
+        contributionAmountUsdc: _contribution,
+        frequency: _frequency,
+        memberCount: _memberCount,
+      );
+
+      final walletService = ref.read(walletServiceProvider);
+      await walletService.signAndSendTransaction(session, result.transactionBytes);
+
+      ref.invalidate(walletBalancesProvider);
+      ref.invalidate(myCirclesProvider);
+
+      if (mounted) _showSuccessDialog(result.circleAddress);
+    } catch (e) {
+      if (mounted) {
+        final message = e is WalletException ? e.message : 'Could not launch circle: $e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _launching = false);
+    }
+  }
+
+  void _showSuccessDialog(String circleAddress) {
+    final truncated = '${circleAddress.substring(0, 4)}…'
+        '${circleAddress.substring(circleAddress.length - 4)}';
+
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Not available yet'),
-        content: const Text(
-          'Launching a circle on-chain requires the Anchor program, which is '
-          'not deployed in this build phase. This form (name, contribution '
-          'amount, frequency, member count, and inviting from contacts) is '
-          'ready to submit an init-circle transaction once it exists.',
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+        title: const Text('Circle Launched!'),
+        content: Text(
+          'Your circle is live on devnet at $truncated. Invited members can '
+          'join an open seat once they have the circle address and connect '
+          'their own wallet.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Done'),
           ),
         ],
       ),
@@ -1063,10 +1116,16 @@ class _TrustNotice extends StatelessWidget {
 }
 
 class _LaunchButton extends StatelessWidget {
-  const _LaunchButton({required this.scheme, required this.textTheme, required this.onLaunch});
+  const _LaunchButton({
+    required this.scheme,
+    required this.textTheme,
+    required this.submitting,
+    required this.onLaunch,
+  });
 
   final ColorScheme scheme;
   final TextTheme textTheme;
+  final bool submitting;
   final VoidCallback onLaunch;
 
   @override
@@ -1081,9 +1140,15 @@ class _LaunchButton extends StatelessWidget {
               foregroundColor: scheme.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
             ),
-            onPressed: onLaunch,
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Launch Circle'),
+            onPressed: submitting ? null : onLaunch,
+            icon: submitting
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary),
+                  )
+                : const Icon(Icons.arrow_forward),
+            label: Text(submitting ? 'Launching…' : 'Launch Circle'),
           ),
         ),
         const SizedBox(height: 10),

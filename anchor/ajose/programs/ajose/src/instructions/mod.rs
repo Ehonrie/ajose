@@ -1,7 +1,10 @@
+pub mod cancel_circle;
 pub mod contribute;
 pub mod create_circle;
 pub mod join_circle;
 
+#[allow(ambiguous_glob_reexports)]
+pub use cancel_circle::*;
 #[allow(ambiguous_glob_reexports)]
 pub use contribute::*;
 #[allow(ambiguous_glob_reexports)]

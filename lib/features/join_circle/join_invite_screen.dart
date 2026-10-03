@@ -12,11 +12,11 @@ import 'slot_swap_sheet.dart';
 /// Previews a circle from an invite code before the user commits to a
 /// seat. Reached from Home's "Enter Code" action.
 ///
-/// Joining doesn't touch the chain yet — there's no Anchor program to
-/// submit a join-circle instruction against, so accepting here shows a
-/// confirmation state but doesn't add anything to [MockCircleRepository].
-/// The next phase wires this button to a real instruction the same way
-/// Contribute's "Confirm & Pay" is already wired to `WalletService`.
+/// Joining doesn't touch the chain yet — accepting here shows a
+/// confirmation state but doesn't submit the program's `join_circle`
+/// instruction, so it won't actually claim a seat on-chain. The next phase
+/// wires this button to that instruction the same way Create Circle's
+/// "Launch Circle" is already wired to `AnchorService`/`WalletService`.
 class JoinInviteScreen extends ConsumerStatefulWidget {
   const JoinInviteScreen({super.key, required this.code});
 

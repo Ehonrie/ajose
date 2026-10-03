@@ -1,31 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/initials_avatar.dart';
+import '../../core/providers.dart';
 import '../../core/text_formatting.dart';
 import '../../core/theme.dart';
 import '../../models/circle.dart';
+import '../../services/anchor_service.dart';
+import '../../services/wallet_service.dart';
 
 /// Contribution confirmation flow: a summary of what's being paid and to
-/// whom, a biometric-gated "Confirm & Pay", then a success celebration.
+/// whom, a biometric-gated "Confirm & Pay" that submits a real `contribute`
+/// transaction, then a success celebration.
 ///
-/// The biometric confirmation itself is real (local_auth). What happens
-/// after it is not: this phase has no Anchor program to build a real SPL
-/// transfer against, so there's nothing to actually sign and send. The
-/// success screen below is a preview of that future state — same as every
-/// "Paid" badge elsewhere in this app, which comes from mock data, not a
-/// real transaction. Nothing here is persisted; leaving and reopening this
-/// screen resets it.
-class ContributeScreen extends StatefulWidget {
+/// Nothing shown here (the recipient, round progress, "Members Signed"
+/// count) is re-read from the chain after a successful contribution —
+/// it's still the [Circle] passed in when this screen opened. Leaving and
+/// reopening against a freshly-read circle is how those numbers catch up.
+class ContributeScreen extends ConsumerStatefulWidget {
   const ContributeScreen({super.key, required this.circle});
 
   final Circle circle;
 
   @override
-  State<ContributeScreen> createState() => _ContributeScreenState();
+  ConsumerState<ContributeScreen> createState() => _ContributeScreenState();
 }
 
-class _ContributeScreenState extends State<ContributeScreen> {
+class _ContributeScreenState extends ConsumerState<ContributeScreen> {
   final _localAuth = LocalAuthentication();
   bool _confirming = false;
   bool _confirmed = false;
@@ -73,19 +76,72 @@ class _ContributeScreenState extends State<ContributeScreen> {
       final canCheckBiometrics = await _localAuth.canCheckBiometrics;
       final isDeviceSupported = await _localAuth.isDeviceSupported();
       if (canCheckBiometrics || isDeviceSupported) {
-        final authenticated = await _localAuth.authenticate(
-          localizedReason: 'Confirm this contribution',
-          biometricOnly: false,
-        );
-        if (!authenticated) return;
+        try {
+          final authenticated = await _localAuth.authenticate(
+            localizedReason: 'Confirm this contribution',
+            biometricOnly: false,
+          );
+          if (!authenticated) return;
+        } on LocalAuthException catch (e) {
+          // Biometric/passcode confirmation is a nice-to-have, not a
+          // requirement: if the device has nothing enrolled at all (no
+          // fingerprint, no PIN/pattern/password), there's no fallback to
+          // retry, so proceed without this gate rather than blocking the
+          // contribution. Any other failure (wrong fingerprint, user
+          // cancelled, lockout, ...) still stops here.
+          if (e.code != LocalAuthExceptionCode.noCredentialsSet) rethrow;
+        }
       }
-      // TODO(next phase): build the SPL-token transfer instruction against
-      // the circle's on-chain pool account, then call
-      // WalletService.signAndSendTransaction(session, tx.encode()). No
-      // Anchor program exists yet, so there's nothing real to send — the
-      // success view is a preview of the post-signing UI, not a real
-      // on-chain confirmation.
+
+      final session = ref.read(walletSessionProvider).value;
+      if (session == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Connect your wallet first.')),
+          );
+        }
+        return;
+      }
+
+      final anchor = ref.read(anchorServiceProvider);
+      final txBytes = await anchor.buildContributeTransaction(
+        contributor: session.publicKey,
+        circleId: widget.circle.id,
+      );
+
+      final walletService = ref.read(walletServiceProvider);
+      await walletService.signAndSendTransaction(session, txBytes);
+
+      ref.invalidate(myCirclesProvider);
+      ref.invalidate(walletBalancesProvider);
+
       if (mounted) setState(() => _confirmed = true);
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not verify identity: ${e.message ?? e.code}')),
+        );
+      }
+    } on LocalAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not verify identity: ${e.description ?? e.code.name}')),
+        );
+      }
+    } on AnchorException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } on WalletException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not submit contribution: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _confirming = false);
     }

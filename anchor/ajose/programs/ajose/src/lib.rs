@@ -40,4 +40,8 @@ pub mod ajose {
     pub fn contribute(ctx: Context<Contribute>) -> Result<()> {
         contribute::handler(ctx)
     }
+
+    pub fn cancel_circle(ctx: Context<CancelCircle>) -> Result<()> {
+        cancel_circle::handler(ctx)
+    }
 }

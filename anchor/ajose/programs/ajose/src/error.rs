@@ -24,4 +24,8 @@ pub enum ErrorCode {
     NotAMember,
     #[msg("This member has already contributed for the current round")]
     AlreadyPaid,
+    #[msg("Only the circle's creator can cancel it")]
+    NotCircleAuthority,
+    #[msg("A circle can only be cancelled before any member has contributed")]
+    CircleAlreadyFunded,
 }

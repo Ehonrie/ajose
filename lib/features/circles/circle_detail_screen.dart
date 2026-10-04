@@ -387,6 +387,7 @@ class _ContextHeaderCard extends StatelessWidget {
         ContributionFrequency.weekly => 'wk',
         ContributionFrequency.biweekly => '2wk',
         ContributionFrequency.monthly => 'mo',
+        ContributionFrequency.testFast => '10min',
       };
 }
 

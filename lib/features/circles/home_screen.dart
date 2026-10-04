@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
@@ -24,6 +27,7 @@ String _frequencyLabel(ContributionFrequency f) => switch (f) {
       ContributionFrequency.weekly => 'weekly',
       ContributionFrequency.biweekly => 'bi-weekly',
       ContributionFrequency.monthly => 'monthly',
+      ContributionFrequency.testFast => 'every 10 min',
     };
 
 String _greetingFirstName(List<Circle> circles, WalletSession? session) {
@@ -59,14 +63,22 @@ Future<void> _showEnterCodeDialog(BuildContext context) async {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(minimumSize: Size.zero),
+          style: FilledButton.styleFrom(
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
           onPressed: () => Navigator.of(dialogContext).pop(controller.text),
           child: const Text('Preview'),
         ),
       ],
     ),
   );
-  controller.dispose();
+  // Deferred rather than disposed immediately: showDialog's Future can
+  // resolve before the dialog's own exit-transition finishes its final
+  // frame, and that frame still rebuilds a TextField bound to this
+  // controller — disposing synchronously here raced that rebuild and
+  // crashed with "A TextEditingController was used after being disposed."
+  WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
 
   if (code == null || code.trim().isEmpty || !context.mounted) return;
   Navigator.of(context).push(
@@ -175,7 +187,7 @@ class HomeScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Ajo', style: textTheme.titleMedium?.copyWith(color: scheme.primary)),
+                Text('Ajose', style: textTheme.titleMedium?.copyWith(color: scheme.primary)),
                 Text(
                   'Circles',
                   style: textTheme.labelSmall?.copyWith(
@@ -248,6 +260,44 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
+  /// A blank/whitespace-only name clears the preference (falls back to the
+  /// truncated address) rather than being rejected — same "nothing set"
+  /// semantics [ProfileService.setDisplayName] already applies.
+  Future<void> _showEditNameDialog(BuildContext context, WidgetRef ref, String? currentName) async {
+    final controller = TextEditingController(text: currentName ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Your Name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'e.g. Ada'),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+
+    if (name == null) return;
+    await ref.read(displayNameProvider.notifier).setName(name);
+  }
+
   void _showWalletSheet(BuildContext rootContext, WidgetRef ref, WalletSession session) {
     showModalBottomSheet<void>(
       context: rootContext,
@@ -256,6 +306,8 @@ class HomeScreen extends ConsumerWidget {
           final balancesAsync = ref.watch(walletBalancesProvider);
           final scheme = Theme.of(context).colorScheme;
           final textTheme = Theme.of(context).textTheme;
+
+          final displayName = ref.watch(displayNameProvider).value;
 
           return SafeArea(
             child: Padding(
@@ -268,12 +320,29 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.account_balance_wallet, color: scheme.primary),
                       const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(session.truncatedAddress, style: textTheme.titleMedium),
-                          Text(AppConfig.cluster.label, style: textTheme.bodySmall),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(displayName ?? session.truncatedAddress, style: textTheme.titleMedium),
+                            Text(AppConfig.cluster.label, style: textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Edit name',
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        onPressed: () => _showEditNameDialog(context, ref, displayName),
+                      ),
+                      IconButton(
+                        tooltip: 'Copy address',
+                        icon: const Icon(Icons.copy, size: 20),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: session.address));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Address copied')),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -461,6 +530,28 @@ class _EmptyCirclesState extends StatelessWidget {
             icon: const Icon(Icons.add),
             label: const Text('Create a Circle'),
           ),
+          const SizedBox(height: 12),
+          Text('or join one', style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showEnterCodeDialog(context),
+                  icon: const Icon(Icons.key, size: 18),
+                  label: const Text('Enter Code'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showScanQrScreen(context),
+                  icon: const Icon(Icons.qr_code_scanner, size: 18),
+                  label: const Text('Scan QR'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -486,7 +577,7 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-class _GreetingCard extends StatelessWidget {
+class _GreetingCard extends ConsumerWidget {
   const _GreetingCard({
     required this.circles,
     required this.session,
@@ -500,14 +591,15 @@ class _GreetingCard extends StatelessWidget {
   final TextTheme textTheme;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final totalRotating = circles.fold<double>(0, (sum, c) => sum + c.potTotalUsdc);
     final weeklyFlow = circles
         .where((c) => c.frequency == ContributionFrequency.weekly)
         .fold<double>(0, (sum, c) => sum + c.contributionAmountUsdc);
     final circlesNeedingAttention =
         circles.where((c) => c.members.any((m) => m.status == MemberPaymentStatus.overdue)).length;
-    final name = _greetingFirstName(circles, session);
+    final displayName = ref.watch(displayNameProvider).value;
+    final name = displayName ?? _greetingFirstName(circles, session);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -538,12 +630,7 @@ class _GreetingCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Ékàábò, $name 👋',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.headlineLarge,
-                          ),
+                          _AnimatedGreetingWord(name: name, style: textTheme.headlineLarge),
                           const SizedBox(height: 4),
                           Text(
                             '${circles.length} active circle${circles.length == 1 ? '' : 's'} • '
@@ -635,6 +722,69 @@ class _GreetingCard extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+    );
+  }
+}
+
+/// Cycles the greeting word through Yoruba, Igbo, and Hausa before
+/// settling on English — runs once per card lifetime (the State persists
+/// across rebuilds from unrelated provider changes, like balance refresh,
+/// so it doesn't replay every time this card redraws).
+class _AnimatedGreetingWord extends StatefulWidget {
+  const _AnimatedGreetingWord({required this.name, required this.style});
+
+  final String name;
+  final TextStyle? style;
+
+  @override
+  State<_AnimatedGreetingWord> createState() => _AnimatedGreetingWordState();
+}
+
+class _AnimatedGreetingWordState extends State<_AnimatedGreetingWord> {
+  static const _greetings = ['Ékàábò', 'Nnọọ', 'Sannu', 'Welcome'];
+
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNext();
+  }
+
+  void _scheduleNext() {
+    if (_index >= _greetings.length - 1) return;
+    _timer = Timer(const Duration(milliseconds: 1100), () {
+      if (!mounted) return;
+      setState(() => _index++);
+      _scheduleNext();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero).animate(animation),
+          child: child,
+        ),
+      ),
+      child: Text(
+        '${_greetings[_index]}, ${widget.name} 👋',
+        key: ValueKey(_index),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: widget.style,
+      ),
     );
   }
 }

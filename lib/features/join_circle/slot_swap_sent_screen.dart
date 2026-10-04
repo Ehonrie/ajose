@@ -88,7 +88,10 @@ class SlotSwapSentScreen extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Keep request')),
           FilledButton(
-            style: FilledButton.styleFrom(minimumSize: Size.zero),
+            style: FilledButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Cancel it'),
           ),
@@ -392,6 +395,7 @@ class _ExchangeCard extends StatelessWidget {
       ContributionFrequency.weekly => 'Weekly',
       ContributionFrequency.biweekly => 'Bi-weekly',
       ContributionFrequency.monthly => 'Monthly',
+      ContributionFrequency.testFast => 'Every 10 min',
     };
   }
 
@@ -400,6 +404,7 @@ class _ExchangeCard extends StatelessWidget {
       ContributionFrequency.weekly => 'wk',
       ContributionFrequency.biweekly => '2wk',
       ContributionFrequency.monthly => 'mo',
+      ContributionFrequency.testFast => '10min',
     };
   }
 }

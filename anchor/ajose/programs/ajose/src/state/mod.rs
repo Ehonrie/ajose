@@ -1,11 +1,17 @@
 use anchor_lang::prelude::*;
 
 /// Contribution cadence, matching Flutter's `ContributionFrequency` enum.
+/// `TestFast` is appended last, not inserted, so the existing variants'
+/// Borsh ordinals (and every already-created Circle account's stored byte)
+/// stay unchanged.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, InitSpace, PartialEq, Eq)]
 pub enum ContributionFrequency {
     Weekly,
     Biweekly,
     Monthly,
+    /// A 10-minute round, for exercising a circle's full lifecycle without
+    /// waiting on a real cadence. Not meant to be offered outside testing.
+    TestFast,
 }
 
 impl ContributionFrequency {
@@ -14,6 +20,7 @@ impl ContributionFrequency {
             Self::Weekly => 7 * 24 * 60 * 60,
             Self::Biweekly => 14 * 24 * 60 * 60,
             Self::Monthly => 30 * 24 * 60 * 60,
+            Self::TestFast => 10 * 60,
         }
     }
 }
@@ -83,5 +90,6 @@ mod tests {
             1_209_600
         );
         assert_eq!(ContributionFrequency::Monthly.interval_seconds(), 2_592_000);
+        assert_eq!(ContributionFrequency::TestFast.interval_seconds(), 600);
     }
 }

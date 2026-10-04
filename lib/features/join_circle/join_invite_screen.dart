@@ -398,6 +398,7 @@ class _CircleSpotlightCard extends StatelessWidget {
       ContributionFrequency.weekly => 'weekly',
       ContributionFrequency.biweekly => 'bi-weekly',
       ContributionFrequency.monthly => 'monthly',
+      ContributionFrequency.testFast => 'every 10 min',
     };
   }
 }
@@ -474,6 +475,7 @@ class _RotationTimeline extends StatelessWidget {
         ContributionFrequency.weekly => 'Weeks',
         ContributionFrequency.biweekly => 'Fortnights',
         ContributionFrequency.monthly => 'Months',
+        ContributionFrequency.testFast => '10-min rounds',
       };
 }
 

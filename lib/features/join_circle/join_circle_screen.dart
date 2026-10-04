@@ -195,4 +195,5 @@ String _frequencyLabel(ContributionFrequency frequency) => switch (frequency) {
       ContributionFrequency.weekly => 'Weekly',
       ContributionFrequency.biweekly => 'Bi-weekly',
       ContributionFrequency.monthly => 'Monthly',
+      ContributionFrequency.testFast => 'Every 10 min',
     };

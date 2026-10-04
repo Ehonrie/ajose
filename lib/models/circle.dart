@@ -15,7 +15,12 @@ library;
 enum ContributionFrequency {
   weekly,
   biweekly,
-  monthly;
+  monthly,
+  /// A 10-minute round. Appended last (not inserted) so its on-chain
+  /// ordinal matches the Rust enum's — existing circles decode unaffected.
+  /// Exists purely to exercise a circle's full lifecycle without waiting on
+  /// a real cadence; not meant to be offered outside testing.
+  testFast;
 
   /// Roughly how long one round lasts — used to derive display dates
   /// (e.g. when the round *after* the current one lands) without a
@@ -24,6 +29,7 @@ enum ContributionFrequency {
         ContributionFrequency.weekly => const Duration(days: 7),
         ContributionFrequency.biweekly => const Duration(days: 14),
         ContributionFrequency.monthly => const Duration(days: 30),
+        ContributionFrequency.testFast => const Duration(minutes: 10),
       };
 }
 

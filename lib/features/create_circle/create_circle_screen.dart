@@ -8,11 +8,11 @@ import '../../core/theme.dart';
 import '../../models/circle.dart';
 import '../../services/wallet_service.dart';
 
-const List<double> _kContributionPresets = [50, 100, 250, 500];
-const double _kMinContribution = 25;
+const List<double> _kContributionPresets = [5, 50, 100, 250, 500];
+const double _kMinContribution = 5;
 const double _kMaxContribution = 1000;
-const double _kContributionStep = 25;
-const int _kMinMembers = 3;
+const double _kContributionStep = 5;
+const int _kMinMembers = 1;
 const int _kMaxMembers = 20;
 
 /// Circle creation form. Building this against the same [Circle]/[Member]
@@ -623,6 +623,7 @@ class _RulesCard extends StatelessWidget {
         ContributionFrequency.weekly => 'weeks',
         ContributionFrequency.biweekly => 'fortnights',
         ContributionFrequency.monthly => 'months',
+        ContributionFrequency.testFast => '10-min rounds',
       };
 }
 
@@ -682,6 +683,7 @@ class _FrequencySegmented extends StatelessWidget {
     ContributionFrequency.weekly: 'Weekly',
     ContributionFrequency.biweekly: 'Bi-Wk',
     ContributionFrequency.monthly: 'Month',
+    ContributionFrequency.testFast: '10 min',
   };
 
   @override

@@ -51,7 +51,7 @@ class _SendSolSheetState extends ConsumerState<SendSolSheet> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
-  static const _deployerAddress = 'FzsFMB2TW3bRCyh1YkFb3Pagggo2aouzVA8ZeXkJDH2X';
+  static const _deployerAddress = '9RoUKQcNWRqrsnru8zbd1nDhybKNAZXu8MVmKmYbhD8R';
 
   @override
   void initState() {

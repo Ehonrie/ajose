@@ -78,4 +78,7 @@ class AppConfig {
   static const String storageKeyPublicKey = 'ajose.mwa.public_key';
   static const String storageKeyAccountLabel = 'ajose.mwa.account_label';
   static const String storageKeyWalletUriBase = 'ajose.mwa.wallet_uri_base';
+
+  // --- Local-only user preferences (never on-chain) ---
+  static const String storageKeyDisplayName = 'ajose.profile.display_name';
 }

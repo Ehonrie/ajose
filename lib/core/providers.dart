@@ -5,6 +5,7 @@ import '../models/invite.dart';
 import '../services/anchor_service.dart';
 import '../services/circle_repository.dart';
 import '../services/invite_repository.dart';
+import '../services/profile_service.dart';
 import '../services/rpc_service.dart';
 import '../services/wallet_service.dart';
 import 'mwa_session_manager.dart';
@@ -34,6 +35,23 @@ final circleRepositoryProvider = Provider<CircleRepository>(
 /// code always resolves to the same demo preview; later this resolves a
 /// real invite (on-chain PDA or off-chain link service).
 final inviteRepositoryProvider = Provider<InviteRepository>((ref) => MockInviteRepository());
+
+final profileServiceProvider = Provider<ProfileService>((ref) => ProfileService());
+
+// --- Display name (local-only nickname) ---
+
+final displayNameProvider = AsyncNotifierProvider<DisplayNameNotifier, String?>(DisplayNameNotifier.new);
+
+class DisplayNameNotifier extends AsyncNotifier<String?> {
+  @override
+  Future<String?> build() => ref.watch(profileServiceProvider).loadDisplayName();
+
+  Future<void> setName(String? name) async {
+    await ref.read(profileServiceProvider).setDisplayName(name);
+    final trimmed = name?.trim();
+    state = AsyncData(trimmed == null || trimmed.isEmpty ? null : trimmed);
+  }
+}
 
 // --- Wallet connection state ---
 

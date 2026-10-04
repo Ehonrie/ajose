@@ -114,7 +114,7 @@ class _NotificationsBody extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 40,
+          height: 32,
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
@@ -191,10 +191,13 @@ class _FilterChip extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+          child: Center(
+            widthFactor: 1,
+            child: Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(
+                color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),

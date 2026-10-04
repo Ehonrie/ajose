@@ -230,6 +230,45 @@ class AnchorService {
     return signedTx.toByteArray().toList();
   }
 
+  /// Builds a `join_circle` transaction, claiming the open seat at
+  /// [seatIndex] for [joiningWallet]. The program rejects this if that seat
+  /// is already filled, the wallet already holds a seat, or the index is
+  /// out of range — this is just the instruction call.
+  Future<List<int>> buildJoinCircleTransaction({
+    required Ed25519HDPublicKey joiningWallet,
+    required String circleId,
+    required int seatIndex,
+  }) async {
+    final circlePubkey = Ed25519HDPublicKey.fromBase58(circleId);
+
+    final instruction = Instruction(
+      programId: _programId,
+      accounts: [
+        AccountMeta.writeable(pubKey: circlePubkey, isSigner: false),
+        AccountMeta.writeable(pubKey: joiningWallet, isSigner: true),
+      ],
+      data: ByteArray.merge([
+        ByteArray(_instructionDiscriminator('join_circle')),
+        ByteArray.u8(seatIndex),
+      ]),
+    );
+
+    final blockhash = await _rpc.getLatestBlockhash();
+    final message = Message(instructions: [instruction]);
+    final compiledMessage = message.compile(
+      recentBlockhash: blockhash,
+      feePayer: joiningWallet,
+    );
+
+    final signatures = List.generate(
+      compiledMessage.header.numRequiredSignatures,
+      (i) => Signature(List<int>.filled(64, 0), publicKey: compiledMessage.accountKeys[i]),
+    );
+
+    final signedTx = SignedTx(signatures: signatures, compiledMessage: compiledMessage);
+    return signedTx.toByteArray().toList();
+  }
+
   ByteArray _encodeCreateCircleArgs({
     required String name,
     required int contributionAmount,

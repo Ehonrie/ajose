@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 /// rather than approximating them.
 ///
 /// Only a light palette was ever specified in the designs. The dark scheme
-/// below isn't guessed — it's mechanically derived from the light scheme's
-/// own "Fixed" tokens (primaryFixed, primaryFixedDim, onPrimaryFixed,
-/// onPrimaryFixedVariant, and the tertiary/secondary equivalents), which
-/// Material 3 defines as brightness-invariant for exactly this reason: they
-/// double as the dark-scheme's primary/onPrimary/primaryContainer/
-/// onPrimaryContainer values. See the tone-mapping comment on [_darkScheme].
+/// is hand-tuned to the same brand (deep green, warm gold, muted
+/// terracotta) rather than mechanically inverted — a straight M3 tone-swap
+/// read as flat and generic once actually seen on a device. The "Fixed"
+/// tokens (primaryFixed, onPrimaryFixed, etc.) stay brightness-invariant
+/// per M3 convention, since several screens rely on them reading the same
+/// pale mint/gold regardless of theme (e.g. icon badges).
 class AppTheme {
   AppTheme._();
 
@@ -31,18 +31,19 @@ class AppTheme {
   static const Color _lightSurfaceCard = Color(0xFFFFFFFF);
   static const Color _lightStatusOverdue = Color(0xFFD32F2F);
 
-  // Dark neutral base = the light scheme's own `inverseSurface`/
-  // `onInverseSurface` pair — M3 defines those as already being the
-  // dark-mode surface/onSurface colors (that's what "inverse" previews),
-  // so reusing them keeps the dark neutral hue consistent with the design
-  // rather than inventing an unrelated gray.
-  static const Color _darkSurfaceBase = Color(0xFF2C322D);
-  static const Color _darkOnSurfaceBase = Color(0xFFECF2EB);
-  static final Color _darkBackgroundWarm = _darkSurfaceBase;
-  static final Color _darkSurfaceCard = _lighten(_darkSurfaceBase, 0.05);
-  // M3's standard dark-mode error tone — error hue is effectively
-  // standardized across Material baseline themes regardless of brand seed.
-  static const Color _darkStatusOverdue = Color(0xFFFFB4AB);
+  // Hand-picked, not derived: a near-black with a deliberate green
+  // undertone (not neutral gray) so the dark theme still reads as this
+  // brand's ground, not a generic dark-mode default.
+  static const Color _darkSurfaceBase = Color(0xFF0F1A14);
+  static const Color _darkOnSurfaceBase = Color(0xFFF2EFE9);
+  static const Color _darkBackgroundWarm = _darkSurfaceBase;
+  // A deliberate jump from the ground (not +5% lightness) so cards read as
+  // a distinct layer rather than a barely-different shade of the same flat
+  // surface.
+  static const Color _darkSurfaceCard = Color(0xFF1A2A20);
+  // A clear red-orange rather than M3's baseline pink-salmon, so "overdue"
+  // never reads as just another shade of the brand's own terracotta tertiary.
+  static const Color _darkStatusOverdue = Color(0xFFFF6B5B);
 
   static Color _lighten(Color color, double amount) {
     final hsl = HSLColor.fromColor(color);
@@ -103,37 +104,34 @@ class AppTheme {
     surfaceContainerHighest: const Color(0xFFDEE4DD),
   );
 
-  /// Dark scheme, tone-mapped from the light scheme's own tokens per the
-  /// standard M3 light/dark tone-role table (primary: light tone 40 → dark
-  /// tone 80, primaryContainer: tone 90 → tone 30, etc). Concretely, for
-  /// each hue family: dark.X = light.XFixedDim, dark.onX = light.onXFixed,
-  /// dark.XContainer = light.onXFixedVariant, dark.onXContainer =
-  /// light.XFixed — because those Fixed tokens already sit at exactly
-  /// tones 80/10/30/90, the tones M3 wants for dark mode.
+  /// Dark scheme — hand-tuned to the same three brand hues as light (green,
+  /// gold, terracotta), each picked to read clearly against the near-black
+  /// ground rather than mechanically tone-mapped. The Fixed tokens are
+  /// carried over unchanged from light, per M3 convention.
   static final ColorScheme _darkScheme = ColorScheme.fromSeed(
     seedColor: const Color(0xFF006038),
     brightness: Brightness.dark,
   ).copyWith(
-    primary: const Color(0xFF82D8A3), // light.primaryFixedDim
-    onPrimary: const Color(0xFF002110), // light.onPrimaryFixed
-    primaryContainer: const Color(0xFF00522F), // light.onPrimaryFixedVariant
-    onPrimaryContainer: const Color(0xFF9EF5BE), // light.primaryFixed
+    primary: const Color(0xFF4CAF7D),
+    onPrimary: const Color(0xFF0A2116),
+    primaryContainer: const Color(0xFF1F4A33),
+    onPrimaryContainer: const Color(0xFFB8F0D1),
     primaryFixed: const Color(0xFF9EF5BE),
     primaryFixedDim: const Color(0xFF82D8A3),
     onPrimaryFixed: const Color(0xFF002110),
     onPrimaryFixedVariant: const Color(0xFF00522F),
-    secondary: const Color(0xFFFFB956), // light.secondaryFixedDim
-    onSecondary: const Color(0xFF2A1800), // light.onSecondaryFixed
-    secondaryContainer: const Color(0xFF643F00), // light.onSecondaryFixedVariant
-    onSecondaryContainer: const Color(0xFFFFDDB5), // light.secondaryFixed
+    secondary: const Color(0xFFE8A33D),
+    onSecondary: const Color(0xFF2A1800),
+    secondaryContainer: const Color(0xFF4A3310),
+    onSecondaryContainer: const Color(0xFFFFDDB0),
     secondaryFixed: const Color(0xFFFFDDB5),
     secondaryFixedDim: const Color(0xFFFFB956),
     onSecondaryFixed: const Color(0xFF2A1800),
     onSecondaryFixedVariant: const Color(0xFF643F00),
-    tertiary: const Color(0xFFFFB2B7), // light.tertiaryFixedDim
-    onTertiary: const Color(0xFF40010E), // light.onTertiaryFixed
-    tertiaryContainer: const Color(0xFF7A2C36), // light.onTertiaryFixedVariant
-    onTertiaryContainer: const Color(0xFFFFDADB), // light.tertiaryFixed
+    tertiary: const Color(0xFFC96A52),
+    onTertiary: const Color(0xFF3A0F06),
+    tertiaryContainer: const Color(0xFF5C2A1C),
+    onTertiaryContainer: const Color(0xFFFFD9CC),
     tertiaryFixed: const Color(0xFFFFDADB),
     tertiaryFixedDim: const Color(0xFFFFB2B7),
     onTertiaryFixed: const Color(0xFF40010E),
@@ -142,30 +140,26 @@ class AppTheme {
     // from the brand seed, so there's no equivalent "Fixed" token to reuse.
     error: const Color(0xFFFFB4AB),
     onError: const Color(0xFF690005),
-    // These two exactly match M3's baseline dark error tones AND happen to
-    // equal light.onErrorContainer / light.errorContainer respectively —
-    // the standard light↔dark error swap, confirmed against the given
-    // light tokens rather than assumed.
     errorContainer: const Color(0xFF93000A),
     onErrorContainer: const Color(0xFFFFDAD6),
     surface: _darkSurfaceBase,
     onSurface: _darkOnSurfaceBase,
-    onSurfaceVariant: _darken(_darkOnSurfaceBase, 0.28),
-    outline: _lighten(_darkSurfaceBase, 0.35),
-    outlineVariant: _lighten(_darkSurfaceBase, 0.14),
+    onSurfaceVariant: const Color(0xFFA8B5AC),
+    outline: const Color(0xFF5C6B61),
+    outlineVariant: const Color(0xFF33403A),
     shadow: const Color(0xFF000000),
     scrim: const Color(0xFF000000),
     inverseSurface: const Color(0xFFF5FBF4), // light.surface
     onInverseSurface: const Color(0xFF171D19), // light.onSurface
     inversePrimary: const Color(0xFF006038), // light.primary
-    surfaceTint: const Color(0xFF82D8A3),
-    surfaceDim: _darken(_darkSurfaceBase, 0.05),
-    surfaceBright: _lighten(_darkSurfaceBase, 0.10),
-    surfaceContainerLowest: _darken(_darkSurfaceBase, 0.07),
-    surfaceContainerLow: _lighten(_darkSurfaceBase, 0.02),
-    surfaceContainer: _lighten(_darkSurfaceBase, 0.045),
-    surfaceContainerHigh: _lighten(_darkSurfaceBase, 0.075),
-    surfaceContainerHighest: _lighten(_darkSurfaceBase, 0.11),
+    surfaceTint: const Color(0xFF4CAF7D),
+    surfaceDim: _darken(_darkSurfaceBase, 0.03),
+    surfaceBright: _lighten(_darkSurfaceBase, 0.12),
+    surfaceContainerLowest: _darken(_darkSurfaceBase, 0.05),
+    surfaceContainerLow: _lighten(_darkSurfaceBase, 0.03),
+    surfaceContainer: _lighten(_darkSurfaceBase, 0.06),
+    surfaceContainerHigh: _lighten(_darkSurfaceBase, 0.09),
+    surfaceContainerHighest: _lighten(_darkSurfaceBase, 0.13),
   );
 
   /// Headline/title roles use Plus Jakarta Sans; body/label roles use

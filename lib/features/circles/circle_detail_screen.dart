@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/date_formatting.dart';
 import '../../core/initials_avatar.dart';
@@ -26,6 +28,12 @@ class CircleDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Circle Details'),
         actions: [
+          if (circleAsync.value case final circle? when circle.members.any((m) => m.pubkey.isEmpty))
+            IconButton(
+              tooltip: 'Invite someone',
+              icon: const Icon(Icons.qr_code),
+              onPressed: () => _showInviteSheet(context, circle),
+            ),
           if (circleAsync.value case final circle? when _canCancel(circle, session))
             PopupMenuButton<String>(
               itemBuilder: (_) => [
@@ -48,6 +56,52 @@ class CircleDetailScreen extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Failed to load circle: $e')),
         ),
       ),
+    );
+  }
+
+  void _showInviteSheet(BuildContext context, Circle circle) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        final scheme = Theme.of(sheetContext).colorScheme;
+        final textTheme = Theme.of(sheetContext).textTheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Invite to "${circle.name}"', style: textTheme.titleLarge, textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                Text(
+                  'Scanning this claims the next open seat — no prior invite needed.',
+                  style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                // Fixed white/black regardless of app theme — QR scanners
+                // need high contrast, not the circle's brand palette.
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: QrImageView(data: circle.id, size: 220),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: circle.id));
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(content: Text('Circle address copied')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: Text(circle.id, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

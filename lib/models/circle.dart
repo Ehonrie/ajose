@@ -91,15 +91,19 @@ class Circle {
     required this.nextRoundDate,
     required this.currentRoundIndex,
     required this.currentRoundDeadline,
+    required this.createdAt,
   });
 
-  /// On-chain circle account address once real reads land; a stable mock
-  /// id for now.
+  /// On-chain circle account address.
   final String id;
   final String name;
   final List<Member> members;
   final double contributionAmountUsdc;
   final ContributionFrequency frequency;
+
+  /// When this circle was launched — the on-chain account's own
+  /// `created_at`. Drives the "Circle launched" entry in History.
+  final DateTime createdAt;
 
   /// Next time something happens for this circle worth surfacing in a
   /// summary list — in practice the same moment as [currentRoundDeadline].

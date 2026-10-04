@@ -12,10 +12,12 @@ import '../../core/theme.dart';
 import '../../models/circle.dart';
 import '../contribute/contribute_screen.dart';
 import '../create_circle/create_circle_screen.dart';
-import '../join_circle/join_invite_screen.dart';
+import '../join_circle/join_circle_screen.dart';
+import '../join_circle/qr_scan_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 import 'circle_detail_screen.dart';
+import 'history_screen.dart';
 import 'send_sol_sheet.dart';
 
 String _frequencyLabel(ContributionFrequency f) => switch (f) {
@@ -36,20 +38,19 @@ void _showComingSoon(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
-/// Prompts for an invite code, then previews it on [JoinInviteScreen].
-/// [MockInviteRepository] resolves any non-empty code to the same demo
-/// invite for now — there's no real invite-link/code backend yet.
+/// Prompts for a circle's on-chain address, then previews it for real on
+/// [JoinCircleScreen] — the address *is* the invite code, since an open
+/// seat needs no separate invite record to claim.
 Future<void> _showEnterCodeDialog(BuildContext context) async {
   final controller = TextEditingController();
   final code = await showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Enter Invite Code'),
+      title: const Text('Enter Circle Address'),
       content: TextField(
         controller: controller,
         autofocus: true,
-        textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(hintText: 'e.g. FAMILY2024'),
+        decoration: const InputDecoration(hintText: 'Paste the circle\'s address'),
         onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
       ),
       actions: [
@@ -69,7 +70,19 @@ Future<void> _showEnterCodeDialog(BuildContext context) async {
 
   if (code == null || code.trim().isEmpty || !context.mounted) return;
   Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => JoinInviteScreen(code: code.trim())),
+    MaterialPageRoute(builder: (_) => JoinCircleScreen(circleId: code.trim())),
+  );
+}
+
+/// Opens the in-app camera scanner and, on a successful scan, previews
+/// that circle on [JoinCircleScreen].
+Future<void> _showScanQrScreen(BuildContext context) async {
+  final scanned = await Navigator.of(context).push<String>(
+    MaterialPageRoute(builder: (_) => const QrScanScreen()),
+  );
+  if (scanned == null || scanned.isEmpty || !context.mounted) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => JoinCircleScreen(circleId: scanned)),
   );
 }
 
@@ -383,7 +396,9 @@ class _HomeBody extends StatelessWidget {
               ],
             ),
             TextButton(
-              onPressed: () => _showComingSoon(context, 'Circle history is coming soon.'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+              ),
               child: Text('History', style: textTheme.labelLarge?.copyWith(color: scheme.primary)),
             ),
           ],
@@ -633,9 +648,13 @@ class _FeaturedCircleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The one circle that matters most right now gets real visual weight —
+    // a wider radius and a warm glow instead of a flat shadow — so
+    // hierarchy on this screen comes from restraint elsewhere, not from
+    // every card sharing the same generic treatment.
     return Material(
       color: scheme.surfaceCard,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
@@ -644,8 +663,10 @@ class _FeaturedCircleCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: scheme.secondary.withValues(alpha: 0.18)),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 3)),
+              BoxShadow(color: scheme.secondary.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8)),
             ],
           ),
           child: Column(
@@ -796,9 +817,12 @@ class _CompactCircleCard extends StatelessWidget {
     final visible = circle.members.take(_maxAvatars).toList();
     final overflow = circle.members.length - visible.length;
 
+    // Deliberately flatter than the featured card above it — a border
+    // instead of a shadow, tighter radius — so it reads as a secondary
+    // item in a list rather than competing for the same attention.
     return Material(
       color: scheme.surfaceCard,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
@@ -807,9 +831,8 @@ class _CompactCircleCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 3)),
-            ],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1003,8 +1026,8 @@ class _InviteCard extends StatelessWidget {
                     Text('Start or join another circle', style: textTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text(
-                      'Want to start a new savings group? Invite friends or join an '
-                      'existing circle with an invite code.',
+                      'Want to start a new savings group? Scan a circle\'s QR code or '
+                      'enter its address to join an existing one.',
                       style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
                   ],
@@ -1030,9 +1053,9 @@ class _InviteCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _showComingSoon(context, 'Inviting friends is coming soon.'),
-                  icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('Invite Friends'),
+                  onPressed: () => _showScanQrScreen(context),
+                  icon: const Icon(Icons.qr_code_scanner, size: 18),
+                  label: const Text('Scan QR'),
                 ),
               ),
             ],

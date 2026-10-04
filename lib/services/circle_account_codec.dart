@@ -49,7 +49,8 @@ class CircleAccountCodec {
     final members = List.generate(memberCount, (i) => _readMemberSeat(reader, i));
     final currentRoundIndex = reader.readU16();
     final currentRoundDeadline = _readI64(reader);
-    // vault_bump (u8) and created_at (i64) follow but aren't needed by the UI.
+    reader.readU8(); // vault_bump — unused here
+    final createdAt = _readI64(reader);
 
     final deadline = DateTime.fromMillisecondsSinceEpoch(currentRoundDeadline * 1000);
 
@@ -62,6 +63,7 @@ class CircleAccountCodec {
       nextRoundDate: deadline,
       currentRoundDeadline: deadline,
       currentRoundIndex: currentRoundIndex,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(createdAt * 1000),
     );
   }
 

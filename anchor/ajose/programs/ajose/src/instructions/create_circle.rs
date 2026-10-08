@@ -33,6 +33,7 @@ pub fn handler(
     frequency: ContributionFrequency,
     seat_reservations: Vec<Option<Pubkey>>,
     first_round_deadline: i64,
+    collateral_amount: u64,
 ) -> Result<()> {
     require!(
         !name.is_empty() && name.as_bytes().len() <= MAX_CIRCLE_NAME_LENGTH,
@@ -72,6 +73,9 @@ pub fn handler(
             payout_position: index as u16,
             status: MemberPaymentStatus::Pending,
             paid_at: None,
+            bond_posted: 0,
+            bond_remaining: 0,
+            bond_claimed: false,
         })
         .collect();
     circle.current_round_index = 0;
@@ -79,6 +83,9 @@ pub fn handler(
     circle.vault_bump =
         Pubkey::find_program_address(&[b"vault", circle.key().as_ref()], ctx.program_id).1;
     circle.created_at = now;
+    circle.collateral_amount = collateral_amount;
+    circle.bond_bump =
+        Pubkey::find_program_address(&[b"bond", circle.key().as_ref()], ctx.program_id).1;
 
     Ok(())
 }

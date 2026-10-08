@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../core/auto_settle_ticker.dart';
+import '../../core/countdown_text.dart';
 import '../../core/date_formatting.dart';
 import '../../core/initials_avatar.dart';
 import '../../core/mwa_session_manager.dart';
@@ -50,7 +52,16 @@ class CircleDetailScreen extends ConsumerWidget {
             if (circle == null) {
               return const Center(child: Text('Circle not found.'));
             }
-            return _CircleDetailBody(circle: circle);
+            return Stack(
+              children: [
+                _CircleDetailBody(circle: circle),
+                if (!circle.isComplete)
+                  AutoSettleTicker(
+                    circle: circle,
+                    onFinalSettlement: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  ),
+              ],
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Failed to load circle: $e')),
@@ -531,6 +542,10 @@ class _UpNextBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The current round is already the circle's last one — `nextRecipient`
+    // would just wrap back around to a round that doesn't exist, so show a
+    // "final round" notice instead of a fabricated upcoming turn.
+    final isLastRound = circle.currentRoundNumber >= circle.totalRounds;
     final next = circle.nextRecipient;
     return Container(
       width: double.infinity,
@@ -549,7 +564,11 @@ class _UpNextBanner extends StatelessWidget {
               color: scheme.secondary.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.arrow_forward, size: 18, color: scheme.secondary),
+            child: Icon(
+              isLastRound ? Icons.flag : Icons.arrow_forward,
+              size: 18,
+              color: scheme.secondary,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -557,28 +576,31 @@ class _UpNextBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'UP NEXT (ROUND ${circle.currentRoundNumber + 1})',
+                  isLastRound ? 'FINAL ROUND' : 'UP NEXT (ROUND ${circle.currentRoundNumber + 1})',
                   style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant, fontSize: 10),
                 ),
                 Text(
-                  next.isCurrentUser ? '${next.displayName} (You)' : next.displayName,
+                  isLastRound
+                      ? 'No more rounds after this one'
+                      : (next.isCurrentUser ? '${next.displayName} (You)' : next.displayName),
                   style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceCard,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 2)],
+          if (!isLastRound)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: scheme.surfaceCard,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 2)],
+              ),
+              child: Text(
+                formatUpcoming(circle.followingRoundDeadline),
+                style: textTheme.labelSmall?.copyWith(color: scheme.onSurface),
+              ),
             ),
-            child: Text(
-              formatUpcoming(circle.followingRoundDeadline),
-              style: textTheme.labelSmall?.copyWith(color: scheme.onSurface),
-            ),
-          ),
         ],
       ),
     );
@@ -622,7 +644,7 @@ class _CountdownCard extends StatelessWidget {
                       'ROUND ${circle.currentRoundNumber} DEADLINE',
                       style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
-                    Text(formatCountdown(circle.currentRoundDeadline), style: textTheme.headlineMedium),
+                    CountdownText(circle.currentRoundDeadline, style: textTheme.headlineMedium),
                   ],
                 ),
               ),
@@ -894,6 +916,9 @@ class _BottomCta extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final youPaid = circle.currentUserMember?.hasPaidCurrentRound ?? false;
+    final me = circle.currentUserMember;
+    final canClaimCollateral =
+        circle.isComplete && me != null && !me.bondClaimed && me.bondRemainingUsdc > 0;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
@@ -906,7 +931,30 @@ class _BottomCta extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (youPaid)
+          if (circle.isComplete)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: scheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Circle complete — all members paid',
+                      textAlign: TextAlign.center,
+                      style: textTheme.titleMedium?.copyWith(color: scheme.primary),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (youPaid)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -932,8 +980,6 @@ class _BottomCta extends ConsumerWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: scheme.primaryContainer,
-                  foregroundColor: scheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -946,6 +992,17 @@ class _BottomCta extends ConsumerWidget {
                 ),
               ),
             ),
+          if (canClaimCollateral) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _claimCollateral(context, ref, me),
+                icon: const Icon(Icons.lock_open_rounded, size: 18),
+                label: Text('Claim Collateral (\$${me.bondRemainingUsdc.toStringAsFixed(2)} USDC)'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -965,5 +1022,49 @@ class _BottomCta extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _claimCollateral(BuildContext context, WidgetRef ref, Member me) async {
+    final session = ref.read(walletSessionProvider).value;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connect your wallet first.')),
+      );
+      return;
+    }
+
+    try {
+      final anchor = ref.read(anchorServiceProvider);
+      final txBytes = await anchor.buildClaimCollateralTransaction(
+        member: session.publicKey,
+        circle: circle,
+      );
+
+      final walletService = ref.read(walletServiceProvider);
+      final signature = await walletService.signAndSendTransaction(session, txBytes);
+
+      try {
+        final rpc = ref.read(rpcServiceProvider);
+        await rpc.waitForSignatureStatus(signature);
+      } catch (_) {
+        // Best-effort confirmation wait — see ContributeScreen for why a
+        // failure here doesn't mean the transaction itself failed.
+      }
+
+      ref.invalidate(myCirclesProvider);
+      ref.invalidate(circleByIdProvider(circle.id));
+      ref.invalidate(walletBalancesProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Collateral claimed: \$${me.bondRemainingUsdc.toStringAsFixed(2)} USDC.')),
+        );
+      }
+    } catch (e) {
+      final message = e is WalletException || e is AnchorException ? e.toString() : 'Could not claim collateral: $e';
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
   }
 }

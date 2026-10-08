@@ -5,3 +5,5 @@ pub const MAX_CIRCLE_NAME_LENGTH: usize = 64;
 // second wallet on hand.
 pub const MIN_SEATS: usize = 1;
 pub const MAX_SEATS: usize = 50;
+
+pub const MAX_SAVINGS_LABEL_LENGTH: usize = 40;

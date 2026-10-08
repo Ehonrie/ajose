@@ -25,11 +25,17 @@ String formatUpcoming(DateTime d) {
   return formatShortDate(d);
 }
 
-/// "3 days, 14 hrs" style countdown to a deadline.
+/// "3 days, 14 hrs" style countdown to a deadline, dropping to finer units
+/// as the deadline nears so a sub-day cadence (like the 10-minute test
+/// frequency) still shows real movement instead of reading "0 days, 0 hrs"
+/// for its entire window.
 String formatCountdown(DateTime deadline) {
   final diff = deadline.difference(DateTime.now());
   if (diff.isNegative) return 'Deadline passed';
-  return '${diff.inDays} days, ${diff.inHours % 24} hrs';
+  if (diff.inDays >= 1) return '${diff.inDays} days, ${diff.inHours % 24} hrs';
+  if (diff.inHours >= 1) return '${diff.inHours} hrs, ${diff.inMinutes % 60} min';
+  if (diff.inMinutes >= 1) return '${diff.inMinutes} min, ${diff.inSeconds % 60} sec';
+  return '${diff.inSeconds} sec';
 }
 
 /// "5 days" / "tomorrow" / "today" — a looser countdown for compact cards

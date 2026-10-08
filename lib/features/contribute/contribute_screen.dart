@@ -110,12 +110,29 @@ class _ContributeScreenState extends ConsumerState<ContributeScreen> {
       );
 
       final walletService = ref.read(walletServiceProvider);
-      await walletService.signAndSendTransaction(session, txBytes);
+      final signature = await walletService.signAndSendTransaction(session, txBytes);
 
+      // The wallet accepting and submitting the transaction is the real
+      // success signal — show it now, rather than making it depend on the
+      // confirmation step below. On a flaky connection (e.g. this app's own
+      // RPC call failing to resolve devnet, even though the wallet's own
+      // submission went through fine over its own connection), waiting on
+      // that first would turn a successful contribution into a false
+      // "could not submit" error.
+      if (mounted) setState(() => _confirmed = true);
+
+      // Best-effort from here: confirm the transaction landed, then refresh
+      // balances/circle data so they're not stale. A failure here doesn't
+      // mean the contribution failed, so it's swallowed rather than shown.
+      try {
+        final rpc = ref.read(rpcServiceProvider);
+        await rpc.waitForSignatureStatus(signature);
+      } catch (_) {
+        // Ignored — see above. The next pull-to-refresh or screen revisit
+        // will pick up the confirmed state once connectivity recovers.
+      }
       ref.invalidate(myCirclesProvider);
       ref.invalidate(walletBalancesProvider);
-
-      if (mounted) setState(() => _confirmed = true);
     } on PlatformException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

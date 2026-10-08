@@ -588,10 +588,6 @@ class _ConnectWalletButton extends ConsumerWidget {
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        style: FilledButton.styleFrom(
-          backgroundColor: scheme.primaryContainer,
-          foregroundColor: scheme.onPrimary,
-        ),
         onPressed: isLoading
             ? null
             : () => ref.read(walletSessionProvider.notifier).connect(),

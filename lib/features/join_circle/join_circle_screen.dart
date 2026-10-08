@@ -85,6 +85,7 @@ class _JoinCircleScreenState extends ConsumerState<JoinCircleScreen> {
         joiningWallet: session.publicKey,
         circleId: circle.id,
         seatIndex: seatIndex,
+        collateralAmountUsdc: circle.collateralAmountUsdc,
       );
 
       final walletService = ref.read(walletServiceProvider);
@@ -163,7 +164,10 @@ class _JoinCircleBody extends StatelessWidget {
                     Expanded(
                       child: Text(
                         openSeats > 0
-                            ? 'Joining claims the next open seat. Your contributions and payout turn follow the same on-chain rules as every other member.'
+                            ? 'Joining claims the next open seat and pays this round\'s '
+                                '\$${circle.contributionAmountUsdc.toStringAsFixed(0)} USDC contribution in the '
+                                'same transaction. Your payout turn follows the same on-chain rules as every '
+                                'other member.'
                             : 'This circle has no open seats left.',
                         style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                       ),
@@ -171,6 +175,30 @@ class _JoinCircleBody extends StatelessWidget {
                   ],
                 ),
               ),
+              if (circle.requiresCollateral && openSeats > 0) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryFixed.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_outline, size: 18, color: scheme.secondary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'This circle also requires a \$${circle.collateralAmountUsdc.toStringAsFixed(2)} USDC '
+                          'collateral bond to join — refunded once the circle finishes, minus anything forfeited '
+                          'to cover a missed round of your own.',
+                          style: textTheme.bodySmall?.copyWith(color: scheme.onSecondaryFixedVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -184,7 +212,11 @@ class _JoinCircleBody extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2, color: scheme.onPrimary),
                 )
               : const Icon(Icons.group_add),
-          label: Text(joining ? 'Joining…' : 'Join Circle'),
+          label: Text(
+            joining
+                ? 'Joining…'
+                : 'Join & Pay \$${(circle.contributionAmountUsdc + circle.collateralAmountUsdc).toStringAsFixed(2)} USDC',
+          ),
         ),
       ],
     );

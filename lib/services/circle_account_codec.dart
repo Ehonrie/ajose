@@ -29,8 +29,13 @@ class CircleAccountCodec {
   }
 
   /// Decodes raw account bytes (including the 8-byte discriminator) for the
-  /// account at [address] into a [model.Circle].
-  static model.Circle decode(List<int> data, {required String address}) {
+  /// account at [address] into a [model.Circle]. [viewerPubkey] (base58), if
+  /// given, flags whichever member seat matches it as [model.Member.isCurrentUser]
+  /// — the account data itself has no notion of "viewer", so without this
+  /// every "(You)" label, the rotation ring's own-turn highlight, and any
+  /// paid-state gating keyed off [model.Circle.currentUserMember] silently
+  /// never matches.
+  static model.Circle decode(List<int> data, {required String address, String? viewerPubkey}) {
     // Slice the discriminator off *before* wrapping, not via a nonzero
     // ByteData view offset: BinaryReader's readString()/readU64() read
     // through `buf.buffer.asUint8List()`, which returns the whole backing
@@ -46,11 +51,19 @@ class CircleAccountCodec {
     final contributionAmountBaseUnits = reader.readU64().toInt();
     final frequencyIndex = reader.readU8();
     final memberCount = reader.readU32();
-    final members = List.generate(memberCount, (i) => _readMemberSeat(reader, i));
+    final members = List.generate(memberCount, (i) => _readMemberSeat(reader, i, viewerPubkey));
     final currentRoundIndex = reader.readU16();
     final currentRoundDeadline = _readI64(reader);
     reader.readU8(); // vault_bump — unused here
     final createdAt = _readI64(reader);
+    final completedRounds = reader.readU16();
+    final hasLastPayoutRecipient = reader.readU8() == 1;
+    final lastPayoutRecipient = hasLastPayoutRecipient ? _readPubkey(reader) : null;
+    final lastPayoutAmountBaseUnits = reader.readU64().toInt();
+    final hasLastPayoutAt = reader.readU8() == 1;
+    final lastPayoutAt = hasLastPayoutAt ? _readI64(reader) : null;
+    final collateralAmountBaseUnits = reader.readU64().toInt();
+    reader.readU8(); // bond_bump — unused here
 
     final deadline = DateTime.fromMillisecondsSinceEpoch(currentRoundDeadline * 1000);
 
@@ -64,6 +77,11 @@ class CircleAccountCodec {
       currentRoundDeadline: deadline,
       currentRoundIndex: currentRoundIndex,
       createdAt: DateTime.fromMillisecondsSinceEpoch(createdAt * 1000),
+      completedRounds: completedRounds,
+      lastPayoutRecipientPubkey: lastPayoutRecipient?.toBase58(),
+      lastPayoutAmountUsdc: lastPayoutAmountBaseUnits / _usdcBaseUnitsPerToken,
+      lastPayoutAt: lastPayoutAt != null ? DateTime.fromMillisecondsSinceEpoch(lastPayoutAt * 1000) : null,
+      collateralAmountUsdc: collateralAmountBaseUnits / _usdcBaseUnitsPerToken,
     );
   }
 
@@ -73,23 +91,31 @@ class CircleAccountCodec {
     return circle.members.any((m) => m.pubkey == ownerPubkey);
   }
 
-  static model.Member _readMemberSeat(BinaryReader reader, int index) {
+  static model.Member _readMemberSeat(BinaryReader reader, int index, String? viewerPubkey) {
     final hasWallet = reader.readU8() == 1;
     final wallet = hasWallet ? _readPubkey(reader) : null;
     final payoutPosition = reader.readU16();
     final statusIndex = reader.readU8();
     final hasPaidAt = reader.readU8() == 1;
     final paidAt = hasPaidAt ? _readI64(reader) : null;
+    final bondPostedBaseUnits = reader.readU64().toInt();
+    final bondRemainingBaseUnits = reader.readU64().toInt();
+    final bondClaimed = reader.readU8() == 1;
+    final walletBase58 = wallet?.toBase58();
 
     return model.Member(
       // An open (unclaimed) seat has no on-chain identity yet; represented
       // as an empty pubkey with a distinct display name rather than adding
       // an "unclaimed" concept to the shared Member model every screen reads.
-      pubkey: wallet?.toBase58() ?? '',
-      displayName: wallet != null ? '${wallet.toBase58().substring(0, 4)}…' : 'Open seat',
+      pubkey: walletBase58 ?? '',
+      displayName: wallet != null ? '${walletBase58!.substring(0, 4)}…' : 'Open seat',
       payoutPosition: payoutPosition,
       status: model.MemberPaymentStatus.values[statusIndex],
       paidAt: paidAt != null ? DateTime.fromMillisecondsSinceEpoch(paidAt * 1000) : null,
+      isCurrentUser: viewerPubkey != null && viewerPubkey.isNotEmpty && walletBase58 == viewerPubkey,
+      bondPostedUsdc: bondPostedBaseUnits / _usdcBaseUnitsPerToken,
+      bondRemainingUsdc: bondRemainingBaseUnits / _usdcBaseUnitsPerToken,
+      bondClaimed: bondClaimed,
     );
   }
 

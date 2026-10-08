@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../models/circle.dart';
 import '../circles/circle_detail_screen.dart';
 import '../contribute/contribute_screen.dart';
+import 'payout_receipt_screen.dart';
 
 /// A feed of what's happened across the user's circles, plus a due-soon
 /// reminder banner. There's no persisted event log yet (no backend for
@@ -27,11 +28,11 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String? _selectedCircleId;
-  bool _allRead = false;
 
   @override
   Widget build(BuildContext context) {
     final circlesAsync = ref.watch(myCirclesProvider);
+    final allRead = ref.watch(notificationsAllReadProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
@@ -41,9 +42,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           data: (circles) => _NotificationsBody(
             circles: circles,
             selectedCircleId: _selectedCircleId,
-            allRead: _allRead,
+            allRead: allRead,
             onSelectCircle: (id) => setState(() => _selectedCircleId = id),
-            onMarkAllRead: () => setState(() => _allRead = true),
+            onMarkAllRead: () => ref.read(notificationsAllReadProvider.notifier).markAllRead(),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Could not load activity: $e')),
@@ -147,7 +148,7 @@ class _NotificationsBody extends StatelessWidget {
           )
         else
           for (final circle in visibleCircles) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
             _CircleFeedSection(circle: circle, index: circles.indexOf(circle), scheme: scheme, textTheme: textTheme),
           ],
         const SizedBox(height: 24),
@@ -347,7 +348,14 @@ class _CircleFeedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dotColor = index.isEven ? scheme.primary : scheme.secondary;
-    final fullyFunded = circle.membersPaidThisRound == circle.members.length;
+    // A payout fires atomically with the contribution that completes a
+    // round, and the round immediately resets — so by the time this reads
+    // back, "fully funded" never sits around to be observed. Show the
+    // payout card instead whenever the circle has finished its rotation, or
+    // the most recent thing that happened to it was that payout (nobody's
+    // contributed to the new round yet).
+    final hasCurrentRoundActivity = circle.members.any((m) => m.status == MemberPaymentStatus.paid);
+    final showPayoutCard = circle.isComplete || (circle.hasPayoutHistory && !hasCurrentRoundActivity);
     final recentContributors = circle.members
         .where((m) => m.status == MemberPaymentStatus.paid && m != circle.currentRecipient)
         .toList()
@@ -386,14 +394,15 @@ class _CircleFeedSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        if (fullyFunded)
-          _PayoutCard(circle: circle, scheme: scheme, textTheme: textTheme)
-        else
+        if (showPayoutCard) ...[
+          _PayoutCard(circle: circle, scheme: scheme, textTheme: textTheme),
+          const SizedBox(height: 8),
+        ] else
           for (final member in recentContributors.take(2)) ...[
             _ContributionCard(circle: circle, member: member, scheme: scheme, textTheme: textTheme),
             const SizedBox(height: 8),
           ],
-        if (!fullyFunded) ...[
+        if (!showPayoutCard) ...[
           _MilestoneCard(circle: circle, scheme: scheme, textTheme: textTheme),
           const SizedBox(height: 8),
         ],
@@ -412,9 +421,14 @@ class _PayoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recipient = circle.currentRecipient;
+    final recipient = circle.lastPayoutRecipientMember ?? circle.currentRecipient;
     final youReceived = recipient.isCurrentUser;
-    final timeAgo = recipient.paidAt != null ? formatRelativeTime(recipient.paidAt!) : 'recently';
+    final timeAgo = circle.lastPayoutAt != null ? formatRelativeTime(circle.lastPayoutAt!) : 'recently';
+    // The round still settles on schedule even if nobody paid in — the
+    // recipient's turn is still spent, just with nothing in the pot. That's
+    // not a payout, so it gets its own framing rather than a celebratory
+    // "+$0.00 disbursed" message.
+    final skipped = circle.lastPayoutAmountUsdc <= 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -432,7 +446,11 @@ class _PayoutCard extends StatelessWidget {
             height: 48,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: scheme.secondaryFixed, borderRadius: BorderRadius.circular(16)),
-            child: Icon(Icons.celebration, color: scheme.secondary, size: 26),
+            child: Icon(
+              skipped ? Icons.event_busy : Icons.celebration,
+              color: scheme.secondary,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -447,7 +465,10 @@ class _PayoutCard extends StatelessWidget {
                       children: [
                         Container(width: 6, height: 6, decoration: BoxDecoration(color: scheme.secondary, shape: BoxShape.circle)),
                         const SizedBox(width: 4),
-                        Text('PAYOUT DISBURSED', style: textTheme.labelSmall?.copyWith(color: scheme.secondary)),
+                        Text(
+                          skipped ? 'ROUND SKIPPED' : 'PAYOUT DISBURSED',
+                          style: textTheme.labelSmall?.copyWith(color: scheme.secondary),
+                        ),
                       ],
                     ),
                     Text(timeAgo, style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
@@ -459,50 +480,51 @@ class _PayoutCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        youReceived ? 'Payout sent to you' : '${shortName(recipient.displayName)} received the pot',
+                        skipped
+                            ? 'No one contributed this round'
+                            : (youReceived ? 'Payout sent to you' : '${shortName(recipient.displayName)} received the pot'),
                         style: textTheme.titleMedium,
                       ),
                     ),
-                    Text(
-                      '+\$${circle.potTotalUsdc.toStringAsFixed(2)}',
-                      style: textTheme.titleLarge?.copyWith(color: scheme.primary, fontWeight: FontWeight.w800),
-                    ),
+                    if (!skipped)
+                      Text(
+                        '+\$${circle.lastPayoutAmountUsdc.toStringAsFixed(2)}',
+                        style: textTheme.titleLarge?.copyWith(color: scheme.primary, fontWeight: FontWeight.w800),
+                      ),
                   ],
                 ),
                 Text(
-                  youReceived
-                      ? 'Round ${circle.currentRoundNumber} rotation settled directly to your balance. '
-                          'Funds are verified and fully protected.'
-                      : 'Sent successfully to their protected wallet.',
+                  skipped
+                      ? '${shortName(recipient.displayName)}\'s turn for round ${circle.completedRounds} '
+                          'passed with nothing in the pot — the circle has moved on.'
+                      : (youReceived
+                          ? 'Round ${circle.completedRounds} rotation settled directly to your balance. '
+                              'Funds are verified and fully protected.'
+                          : 'Sent successfully to their protected wallet.'),
                   style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 10),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     TextButton.icon(
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Receipt view is coming soon.')),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => PayoutReceiptScreen(circle: circle)),
                       ),
                       icon: const Icon(Icons.receipt_long, size: 16),
                       label: const Text('View Receipt'),
                     ),
-                    if (!youReceived)
+                    if (!skipped && !youReceived)
                       TextButton.icon(
                         onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Cheered for ${shortName(recipient.displayName)}! 🎉')),
                         ),
                         icon: const Text('🎉'),
                         label: const Text('Cheer'),
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified, size: 16, color: scheme.primary),
-                          const SizedBox(width: 4),
-                          Text('Confirmed', style: textTheme.labelSmall?.copyWith(color: scheme.primary)),
-                        ],
                       ),
+                    // "Confirmed" badge intentionally removed here — View
+                    // Receipt is the only action when youReceived, now
+                    // centered on its own rather than sharing the row.
                   ],
                 ),
               ],

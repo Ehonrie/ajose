@@ -49,7 +49,21 @@ pub struct Contribute<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Deposits this round's contribution into the circle's vault and marks the
+/// caller's seat paid. Nothing is paid back out here — a round's pot is only
+/// disbursed once its deadline passes, via the separate, permissionless
+/// `settle_round` instruction (see `instructions/settle_round.rs`), so a
+/// member can't shortcut the round's timer just by being the last to pay.
 pub fn handler(ctx: Context<Contribute>) -> Result<()> {
+    let circle = &ctx.accounts.circle;
+    require!(
+        circle.completed_rounds < circle.members.len() as u16,
+        AjoseError::CircleCompleted
+    );
+
+    let now = Clock::get()?.unix_timestamp;
+    require!(now < circle.current_round_deadline, AjoseError::RoundClosed);
+
     let wallet = ctx.accounts.contributor.key();
     let seat_index = eligible_member_index(&ctx.accounts.circle.members, wallet)?;
     let amount = ctx.accounts.circle.contribution_amount;
@@ -66,17 +80,16 @@ pub fn handler(ctx: Context<Contribute>) -> Result<()> {
         amount,
     )?;
 
-    let paid_at = Clock::get()?.unix_timestamp;
     let seat = &mut ctx.accounts.circle.members[seat_index];
     seat.status = MemberPaymentStatus::Paid;
-    seat.paid_at = Some(paid_at);
+    seat.paid_at = Some(now);
 
     emit!(ContributionMade {
         circle: ctx.accounts.circle.key(),
         seat_index: seat_index as u8,
         wallet,
         amount,
-        paid_at,
+        paid_at: now,
     });
 
     Ok(())
@@ -106,6 +119,9 @@ mod tests {
             payout_position: 0,
             status,
             paid_at: None,
+            bond_posted: 0,
+            bond_remaining: 0,
+            bond_claimed: false,
         }
     }
 

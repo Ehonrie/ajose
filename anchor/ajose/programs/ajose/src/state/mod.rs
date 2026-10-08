@@ -41,6 +41,18 @@ pub struct MemberSeat {
     pub payout_position: u16,
     pub status: MemberPaymentStatus,
     pub paid_at: Option<i64>,
+    /// What this seat originally posted to `BondPool` via `post_collateral`
+    /// — zero if the circle doesn't require collateral, or this seat hasn't
+    /// posted yet.
+    pub bond_posted: u64,
+    /// `bond_posted` minus whatever's since been forfeited to cover this
+    /// member's own missed contributions — one contribution's worth per
+    /// miss, not the whole bond at once. What `claim_collateral` actually
+    /// pays out.
+    pub bond_remaining: u64,
+    /// Set once this seat's `claim_collateral` has paid out
+    /// `bond_remaining`, so it can't be claimed twice.
+    pub bond_claimed: bool,
 }
 
 /// Persistent state for one rotating savings circle.
@@ -59,6 +71,25 @@ pub struct Circle {
     /// Bump for the vault-authority PDA: [b"vault", circle.key()].
     pub vault_bump: u8,
     pub created_at: i64,
+    /// How many of this circle's rounds have paid out so far. A circle has
+    /// completed its one full rotation (and `contribute` stops accepting
+    /// further calls) once this reaches `members.len()`.
+    pub completed_rounds: u16,
+    /// Snapshot of the most recent payout, so the UI has something durable
+    /// to show (a receipt, a "payout disbursed" notice) without replaying
+    /// program logs. Overwritten each time a round completes.
+    pub last_payout_recipient: Option<Pubkey>,
+    pub last_payout_amount: u64,
+    pub last_payout_at: Option<i64>,
+    /// Required bond to hold a seat, in USDC base units. Zero means this
+    /// circle doesn't require collateral at all — entirely optional, set
+    /// once at creation and never changed after.
+    pub collateral_amount: u64,
+    /// Bump for the bond-pool vault-authority PDA: [b"bond", circle.key()].
+    /// Present even when `collateral_amount` is zero, so `settle_round`'s
+    /// account shape stays the same for every circle regardless of whether
+    /// it uses collateral.
+    pub bond_bump: u8,
 }
 
 impl Circle {
@@ -72,6 +103,42 @@ impl Circle {
             + 4
             + seat_count * MemberSeat::INIT_SPACE
             + 2
+            + 8
+            + 1
+            + 8
+            + 2
+            + (1 + 32)
+            + 8
+            + (1 + 8)
+            + 8
+            + 1
+    }
+}
+
+/// A personal, time-locked USDC savings vault — unrelated to circles.
+/// Deposits are accepted anytime; a withdrawal is only valid once
+/// `unlock_at` has passed, and empties + closes the vault in one go.
+#[account]
+pub struct SavingsTarget {
+    pub owner: Pubkey,
+    pub label: String,
+    pub usdc_mint: Pubkey,
+    /// A goal to visualize progress toward, in USDC base units. Zero means
+    /// no specific goal — just a locked jar with a free-form balance.
+    pub target_amount: u64,
+    pub unlock_at: i64,
+    /// Bump for the vault-authority PDA: [b"savings_vault", savings_target.key()].
+    pub vault_bump: u8,
+    pub created_at: i64,
+}
+
+impl SavingsTarget {
+    pub fn space(label_length: usize) -> usize {
+        8 + 32
+            + 4
+            + label_length
+            + 32
+            + 8
             + 8
             + 1
             + 8

@@ -39,6 +39,11 @@ class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
   double _contribution = 100;
   int _memberCount = 8;
 
+  bool _requireCollateral = false;
+  // A multiplier on _contribution rather than a stored amount, so it stays
+  // correct if the member adjusts the contribution afterward.
+  double _collateralMultiplier = 1.0;
+
   bool _launching = false;
   bool _loadingContacts = false;
   // Whether we've already run the permission+fetch flow at least once —
@@ -97,6 +102,16 @@ class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
               memberCount: _memberCount,
               onMemberCountChanged: (v) => setState(() => _memberCount = v),
               totalPot: _totalPot,
+            ),
+            const SizedBox(height: 16),
+            _CollateralCard(
+              scheme: scheme,
+              textTheme: textTheme,
+              contribution: _contribution,
+              required: _requireCollateral,
+              onRequiredChanged: (v) => setState(() => _requireCollateral = v),
+              multiplier: _collateralMultiplier,
+              onMultiplierChanged: (m) => setState(() => _collateralMultiplier = m),
             ),
             const SizedBox(height: 16),
             _InviteCard(
@@ -186,6 +201,7 @@ class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
         contributionAmountUsdc: _contribution,
         frequency: _frequency,
         memberCount: _memberCount,
+        collateralAmountUsdc: _requireCollateral ? _contribution * _collateralMultiplier : 0,
       );
 
       final walletService = ref.read(walletServiceProvider);
@@ -604,8 +620,7 @@ class _RulesCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Full circle duration: $memberCount '
-                        '${_frequencyUnitLabel(frequency)} ($memberCount rounds)',
+                        'Full circle duration: ${_circleDurationLabel(frequency, memberCount)}',
                         style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ],
@@ -619,12 +634,16 @@ class _RulesCard extends StatelessWidget {
     );
   }
 
-  static String _frequencyUnitLabel(ContributionFrequency f) => switch (f) {
-        ContributionFrequency.weekly => 'weeks',
-        ContributionFrequency.biweekly => 'fortnights',
-        ContributionFrequency.monthly => 'months',
-        ContributionFrequency.testFast => '10-min rounds',
-      };
+  static String _circleDurationLabel(ContributionFrequency frequency, int memberCount) {
+    final total = frequency.interval * memberCount;
+    final span = switch (frequency) {
+      ContributionFrequency.weekly => '${total.inDays ~/ 7} weeks',
+      ContributionFrequency.biweekly => '${total.inDays ~/ 14} fortnights',
+      ContributionFrequency.monthly => '${total.inDays ~/ 30} months',
+      ContributionFrequency.testFast => '${total.inMinutes} min',
+    };
+    return '$span ($memberCount rounds)';
+  }
 }
 
 class _AmountPresetButton extends StatelessWidget {
@@ -1080,6 +1099,109 @@ class _SuggestedContactRow extends StatelessWidget {
   }
 }
 
+class _CollateralCard extends StatelessWidget {
+  const _CollateralCard({
+    required this.scheme,
+    required this.textTheme,
+    required this.contribution,
+    required this.required,
+    required this.onRequiredChanged,
+    required this.multiplier,
+    required this.onMultiplierChanged,
+  });
+
+  final ColorScheme scheme;
+  final TextTheme textTheme;
+  final double contribution;
+  final bool required;
+  final ValueChanged<bool> onRequiredChanged;
+  final double multiplier;
+  final ValueChanged<double> onMultiplierChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final collateralAmount = contribution * multiplier;
+
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Require Collateral', style: textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      'A refundable bond to hold a seat — forfeited bit by bit to cover anyone\'s '
+                      'missed round, returned once the circle finishes.',
+                      style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Switch(value: required, onChanged: onRequiredChanged),
+            ],
+          ),
+          if (required) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (final m in const [1.0, 1.5, 2.0]) ...[
+                  _MultiplierChip(
+                    label: '${m == m.roundToDouble() ? m.toInt() : m}x',
+                    selected: multiplier == m,
+                    onTap: () => onMultiplierChanged(m),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                const Spacer(),
+                Text(
+                  '\$${collateralAmount.toStringAsFixed(2)} USDC',
+                  style: textTheme.titleMedium?.copyWith(color: scheme.secondary, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MultiplierChip extends StatelessWidget {
+  const _MultiplierChip({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? scheme.secondary : scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: selected ? scheme.onSecondary : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TrustNotice extends StatelessWidget {
   const _TrustNotice({required this.scheme, required this.textTheme, required this.memberCount});
 
@@ -1138,8 +1260,6 @@ class _LaunchButton extends StatelessWidget {
           width: double.infinity,
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: scheme.primaryContainer,
-              foregroundColor: scheme.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
             ),
             onPressed: submitting ? null : onLaunch,

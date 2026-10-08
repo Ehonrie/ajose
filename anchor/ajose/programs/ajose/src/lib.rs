@@ -22,6 +22,7 @@ pub mod ajose {
         frequency: ContributionFrequency,
         seat_reservations: Vec<Option<Pubkey>>,
         first_round_deadline: i64,
+        collateral_amount: u64,
     ) -> Result<()> {
         create_circle::handler(
             ctx,
@@ -30,6 +31,7 @@ pub mod ajose {
             frequency,
             seat_reservations,
             first_round_deadline,
+            collateral_amount,
         )
     }
 
@@ -43,5 +45,34 @@ pub mod ajose {
 
     pub fn cancel_circle(ctx: Context<CancelCircle>) -> Result<()> {
         cancel_circle::handler(ctx)
+    }
+
+    pub fn settle_round(ctx: Context<SettleRound>) -> Result<()> {
+        settle_round::handler(ctx)
+    }
+
+    pub fn create_savings_target(
+        ctx: Context<CreateSavingsTarget>,
+        label: String,
+        unlock_at: i64,
+        target_amount: u64,
+    ) -> Result<()> {
+        create_savings_target::handler(ctx, label, unlock_at, target_amount)
+    }
+
+    pub fn deposit_savings(ctx: Context<DepositSavings>, amount: u64) -> Result<()> {
+        deposit_savings::handler(ctx, amount)
+    }
+
+    pub fn withdraw_savings(ctx: Context<WithdrawSavings>) -> Result<()> {
+        withdraw_savings::handler(ctx)
+    }
+
+    pub fn post_collateral(ctx: Context<PostCollateral>) -> Result<()> {
+        post_collateral::handler(ctx)
+    }
+
+    pub fn claim_collateral(ctx: Context<ClaimCollateral>) -> Result<()> {
+        claim_collateral::handler(ctx)
     }
 }

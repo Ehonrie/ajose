@@ -48,6 +48,9 @@ class Member {
     this.status = MemberPaymentStatus.pending,
     this.paidAt,
     this.isCurrentUser = false,
+    this.bondPostedUsdc = 0,
+    this.bondRemainingUsdc = 0,
+    this.bondClaimed = false,
   });
 
   /// Base58 wallet address. This is the on-chain identity; [displayName] is
@@ -70,7 +73,21 @@ class Member {
   /// data just flags one seat per circle directly.
   final bool isCurrentUser;
 
+  /// What this seat originally posted as collateral — zero if the circle
+  /// doesn't require it, or this seat hasn't posted yet.
+  final double bondPostedUsdc;
+
+  /// [bondPostedUsdc] minus whatever's since been forfeited to cover this
+  /// member's own missed contributions. What `claim_collateral` actually
+  /// pays out, once the circle's fully complete.
+  final double bondRemainingUsdc;
+
+  /// Whether this seat has already claimed its collateral back.
+  final bool bondClaimed;
+
   bool get hasPaidCurrentRound => status == MemberPaymentStatus.paid;
+
+  bool get hasPostedCollateral => bondPostedUsdc > 0;
 
   String get truncatedPubkey {
     if (pubkey.length <= 10) return pubkey;
@@ -84,6 +101,9 @@ class Member {
         status: status ?? this.status,
         paidAt: paidAt ?? this.paidAt,
         isCurrentUser: isCurrentUser,
+        bondPostedUsdc: bondPostedUsdc,
+        bondRemainingUsdc: bondRemainingUsdc,
+        bondClaimed: bondClaimed,
       );
 }
 
@@ -98,6 +118,11 @@ class Circle {
     required this.currentRoundIndex,
     required this.currentRoundDeadline,
     required this.createdAt,
+    this.completedRounds = 0,
+    this.lastPayoutRecipientPubkey,
+    this.lastPayoutAmountUsdc = 0,
+    this.lastPayoutAt,
+    this.collateralAmountUsdc = 0,
   });
 
   /// On-chain circle account address.
@@ -122,7 +147,47 @@ class Circle {
   /// When the current round's contribution window closes.
   final DateTime currentRoundDeadline;
 
+  /// How many rounds have paid out so far. The circle has finished its one
+  /// full rotation — every member paid exactly once — once this reaches
+  /// `members.length`; see [isComplete].
+  final int completedRounds;
+
+  /// The most recent real on-chain payout, snapshotted by the program at
+  /// the moment it fired (atomically with the contribution that completed
+  /// that round). Null until the circle's first payout.
+  final String? lastPayoutRecipientPubkey;
+  final double lastPayoutAmountUsdc;
+  final DateTime? lastPayoutAt;
+
+  bool get hasPayoutHistory => lastPayoutAt != null;
+
+  /// Required bond to hold a seat. Zero means this circle doesn't require
+  /// collateral at all — entirely optional, set once at creation.
+  final double collateralAmountUsdc;
+
+  bool get requiresCollateral => collateralAmountUsdc > 0;
+
+  /// Sum of what every member still has posted — what's actually left in
+  /// the bond pool once any forfeitures and claims are accounted for.
+  double get totalBondRemainingUsdc => members.fold(0, (sum, m) => sum + m.bondRemainingUsdc);
+
+  /// The member who received [lastPayoutAmountUsdc], looked up by pubkey
+  /// since the payout may belong to an earlier round than the one
+  /// [currentRecipient] now points to.
+  Member? get lastPayoutRecipientMember {
+    final pubkey = lastPayoutRecipientPubkey;
+    if (pubkey == null) return null;
+    for (final member in members) {
+      if (member.pubkey == pubkey) return member;
+    }
+    return null;
+  }
+
   int get totalRounds => members.length;
+
+  /// Whether every member has now received their payout once. Once true,
+  /// the on-chain program itself rejects any further `contribute` calls.
+  bool get isComplete => completedRounds >= members.length;
 
   /// 1-based, for display ("Round 5 of 8").
   int get currentRoundNumber => currentRoundIndex + 1;

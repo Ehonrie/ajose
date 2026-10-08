@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
+import '../../core/auto_settle_ticker.dart';
+import '../../core/countdown_text.dart';
 import '../../core/date_formatting.dart';
 import '../../core/initials_avatar.dart';
 import '../../core/mwa_session_manager.dart';
@@ -19,6 +21,7 @@ import '../join_circle/join_circle_screen.dart';
 import '../join_circle/qr_scan_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../savings/savings_screen.dart';
 import 'circle_detail_screen.dart';
 import 'history_screen.dart';
 import 'send_sol_sheet.dart';
@@ -188,13 +191,13 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Ajose', style: textTheme.titleMedium?.copyWith(color: scheme.primary)),
-                Text(
-                  'Circles',
-                  style: textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
+                // Text(
+                //   'Circles',
+                //   style: textTheme.labelSmall?.copyWith(
+                //     color: scheme.onSurfaceVariant,
+                //     fontWeight: FontWeight.normal,
+                //   ),
+                // ),
               ],
             ),
           ],
@@ -202,7 +205,7 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Send a round reminder',
-            icon: const Icon(Icons.notifications_outlined),
+            icon: const Icon(Icons.alarm),
             onPressed: () => _sendReminder(context, ref),
           ),
           IconButton(
@@ -222,7 +225,16 @@ class HomeScreen extends ConsumerWidget {
           ref.invalidate(myCirclesProvider);
         },
         child: circlesAsync.when(
-          data: (circles) => _HomeBody(circles: circles, session: session, scheme: scheme, textTheme: textTheme),
+          // Completed circles (every member paid once) stay visible in
+          // History, but drop off the active Home list — once the last
+          // one wraps up, Home falls back to its empty state rather than
+          // showing a card for a circle there's nothing left to do in.
+          data: (circles) => _HomeBody(
+            circles: circles.where((c) => !c.isComplete).toList(),
+            session: session,
+            scheme: scheme,
+            textTheme: textTheme,
+          ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Padding(
@@ -476,6 +488,10 @@ class _HomeBody extends StatelessWidget {
         if (circles.isEmpty)
           _EmptyCirclesState(scheme: scheme, textTheme: textTheme)
         else ...[
+          // Invisible — keeps each active circle's round settling on time
+          // while the user is sitting on Home, not just inside its own
+          // detail screen.
+          for (final circle in circles) AutoSettleTicker(circle: circle),
           if (featured != null) _FeaturedCircleCard(circle: featured, scheme: scheme, textTheme: textTheme),
           for (final circle in rest) ...[
             const SizedBox(height: 16),
@@ -802,6 +818,7 @@ class _FeaturedCircleCard extends StatelessWidget {
     // a wider radius and a warm glow instead of a flat shadow — so
     // hierarchy on this screen comes from restraint elsewhere, not from
     // every card sharing the same generic treatment.
+    final youPaid = circle.currentUserMember?.hasPaidCurrentRound ?? false;
     return Material(
       color: scheme.surfaceCard,
       borderRadius: BorderRadius.circular(24),
@@ -865,7 +882,7 @@ class _FeaturedCircleCard extends StatelessWidget {
                             'Next Pot Payout',
                             style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                           ),
-                          Text(formatCountdown(circle.currentRoundDeadline), style: textTheme.labelLarge),
+                          CountdownText(circle.currentRoundDeadline, style: textTheme.labelLarge),
                         ],
                       ),
                     ),
@@ -876,16 +893,29 @@ class _FeaturedCircleCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                       ),
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ContributeScreen(circle: circle)),
+                        MaterialPageRoute(
+                          builder: (_) => youPaid
+                              ? CircleDetailScreen(circleId: circle.id)
+                              : ContributeScreen(circle: circle),
+                        ),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Contribute'),
-                          SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 16),
-                        ],
-                      ),
+                      child: youPaid
+                          ? const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('View Details'),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward, size: 16),
+                              ],
+                            )
+                          : const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Contribute'),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward, size: 16),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -1252,11 +1282,13 @@ class _BottomNav extends StatelessWidget {
                 ),
               ),
               _NavItem(
-                icon: Icons.account_balance_wallet,
+                icon: Icons.savings_rounded,
                 label: 'Savings',
                 selected: false,
                 scheme: scheme,
-                onTap: () => _showComingSoon(context, 'A dedicated savings view is coming soon.'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SavingsScreen()),
+                ),
               ),
               _NavItem(
                 icon: Icons.notifications,

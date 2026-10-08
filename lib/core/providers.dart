@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/circle.dart';
 import '../models/invite.dart';
+import '../models/savings_target.dart';
 import '../services/anchor_service.dart';
 import '../services/circle_repository.dart';
 import '../services/invite_repository.dart';
 import '../services/profile_service.dart';
 import '../services/rpc_service.dart';
+import '../services/savings_repository.dart';
 import '../services/wallet_service.dart';
 import 'mwa_session_manager.dart';
 import 'notification_service.dart';
@@ -29,6 +31,10 @@ final anchorServiceProvider = Provider<AnchorService>(
 
 final circleRepositoryProvider = Provider<CircleRepository>(
   (ref) => OnChainCircleRepository(ref.watch(rpcServiceProvider)),
+);
+
+final savingsRepositoryProvider = Provider<SavingsRepository>(
+  (ref) => SavingsRepository(ref.watch(rpcServiceProvider)),
 );
 
 /// Same swap-later story as [circleRepositoryProvider]: today an invite
@@ -106,11 +112,42 @@ final myCirclesProvider = FutureProvider.autoDispose<List<Circle>>((ref) async {
 });
 
 final circleByIdProvider = FutureProvider.autoDispose.family<Circle?, String>((ref, id) async {
+  final session = ref.watch(walletSessionProvider).value;
   final repo = ref.watch(circleRepositoryProvider);
-  return repo.getCircleById(id);
+  return repo.getCircleById(id, viewerPubkey: session?.address);
 });
 
 final inviteByCodeProvider = FutureProvider.autoDispose.family<CircleInvite?, String>((ref, code) async {
   final repo = ref.watch(inviteRepositoryProvider);
   return repo.resolveCode(code);
 });
+
+// --- Savings targets (personal, time-locked vaults — separate from circles) ---
+
+final mySavingsTargetsProvider = FutureProvider.autoDispose<List<SavingsTarget>>((ref) async {
+  final session = ref.watch(walletSessionProvider).value;
+  if (session == null) return [];
+  final repo = ref.watch(savingsRepositoryProvider);
+  return repo.getMySavingsTargets(session.address);
+});
+
+final savingsTargetByIdProvider = FutureProvider.autoDispose.family<SavingsTarget?, String>((ref, id) async {
+  final repo = ref.watch(savingsRepositoryProvider);
+  return repo.getSavingsTargetById(id);
+});
+
+/// Whether the Activity feed has been marked all-read. Deliberately a
+/// plain (non-autoDispose) provider: it needs to survive leaving and
+/// re-entering the Notifications screen, which a value held in that
+/// screen's own State would not — that was reset on every re-navigation.
+/// Still just in-memory, so it resets when the app itself restarts; a real
+/// "seen" concept tied to actual new activity is future work.
+class NotificationsAllReadNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void markAllRead() => state = true;
+}
+
+final notificationsAllReadProvider =
+    NotifierProvider<NotificationsAllReadNotifier, bool>(NotificationsAllReadNotifier.new);

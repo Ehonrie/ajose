@@ -5,6 +5,7 @@ import '../models/invite.dart';
 import '../models/savings_target.dart';
 import '../services/anchor_service.dart';
 import '../services/circle_repository.dart';
+import '../services/hidden_circles_service.dart';
 import '../services/invite_repository.dart';
 import '../services/profile_service.dart';
 import '../services/rpc_service.dart';
@@ -43,6 +44,8 @@ final savingsRepositoryProvider = Provider<SavingsRepository>(
 final inviteRepositoryProvider = Provider<InviteRepository>((ref) => MockInviteRepository());
 
 final profileServiceProvider = Provider<ProfileService>((ref) => ProfileService());
+
+final hiddenCirclesServiceProvider = Provider<HiddenCirclesService>((ref) => HiddenCirclesService());
 
 // --- Display name (local-only nickname) ---
 
@@ -103,12 +106,30 @@ final walletBalancesProvider = FutureProvider.autoDispose<WalletBalances?>((ref)
   return rpc.getBalances(session.publicKey);
 });
 
+// --- Locally hidden circles (dismissed, never on-chain) ---
+
+final hiddenCircleIdsProvider =
+    AsyncNotifierProvider<HiddenCircleIdsNotifier, Set<String>>(HiddenCircleIdsNotifier.new);
+
+class HiddenCircleIdsNotifier extends AsyncNotifier<Set<String>> {
+  @override
+  Future<Set<String>> build() => ref.watch(hiddenCirclesServiceProvider).loadHiddenIds();
+
+  Future<void> hide(String circleId) async {
+    await ref.read(hiddenCirclesServiceProvider).hide(circleId);
+    state = AsyncData({...?state.value, circleId});
+  }
+}
+
 // --- Circle data (mock today, on-chain reads later — same provider) ---
 
 final myCirclesProvider = FutureProvider.autoDispose<List<Circle>>((ref) async {
   final session = ref.watch(walletSessionProvider).value;
   final repo = ref.watch(circleRepositoryProvider);
-  return repo.getMyCircles(session?.address ?? '');
+  final hiddenIds = ref.watch(hiddenCircleIdsProvider).value ?? const <String>{};
+  final circles = await repo.getMyCircles(session?.address ?? '');
+  if (hiddenIds.isEmpty) return circles;
+  return circles.where((c) => !hiddenIds.contains(c.id)).toList();
 });
 
 final circleByIdProvider = FutureProvider.autoDispose.family<Circle?, String>((ref, id) async {

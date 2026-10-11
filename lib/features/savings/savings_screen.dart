@@ -282,16 +282,17 @@ class _SavingsTargetCard extends ConsumerWidget {
                   label: const Text('Deposit'),
                 ),
               ),
-              if (unlocked) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _confirmWithdraw(context, ref),
-                    icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-                    label: const Text('Withdraw'),
-                  ),
+              const SizedBox(width: 10),
+              Expanded(
+                // Always shown so the layout doesn't jump when a target
+                // unlocks — just disabled (null onPressed) until then,
+                // rather than appearing out of nowhere.
+                child: FilledButton.icon(
+                  onPressed: unlocked ? () => _confirmWithdraw(context, ref) : null,
+                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                  label: const Text('Withdraw'),
                 ),
-              ],
+              ),
             ],
           ),
         ],
@@ -310,18 +311,35 @@ class _SavingsTargetCard extends ConsumerWidget {
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'Amount (USDC)', prefixText: '\$ '),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(double.tryParse(value)),
+          onSubmitted: (value) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.of(dialogContext).pop(double.tryParse(value));
+          },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(double.tryParse(controller.text)),
+            onPressed: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.of(dialogContext).pop(double.tryParse(controller.text));
+            },
             child: const Text('Deposit'),
           ),
         ],
       ),
     );
-    controller.dispose();
+    // Deferred rather than disposed immediately: showDialog's Future can
+    // resolve before the dialog's own exit-transition finishes its final
+    // frame, and that frame still rebuilds a TextField bound to this
+    // controller — disposing synchronously here raced that rebuild and
+    // crashed with "A TextEditingController was used after being disposed."
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
 
     if (amount == null || amount <= 0 || !context.mounted) return;
     await _runTransaction(

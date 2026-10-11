@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/mwa_session_manager.dart';
 import '../../core/providers.dart';
-import '../circles/home_screen.dart';
+import '../../core/theme.dart';
+import '../shell/main_shell.dart';
 import 'onboarding_screen.dart';
 
 /// First thing shown on launch: brand mark on the icon's own background
@@ -57,7 +58,7 @@ class _SplashViewState extends ConsumerState<SplashView> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => session != null ? const HomeScreen() : const OnboardingScreen(),
+        builder: (_) => session != null ? const MainShell() : const OnboardingScreen(),
       ),
     );
   }
@@ -75,7 +76,23 @@ class _SplashViewState extends ConsumerState<SplashView> {
         // square asset blends into the screen with no visible edge.
         backgroundColor: const Color(0xFF082819),
         body: const Center(
-          child: Image(image: AssetImage(_logoAsset), width: 100, height: 100),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image(image: AssetImage(_logoAsset), width: 100, height: 100),
+              SizedBox(width: 8),
+              Text(
+                'AJOSE',
+                style: TextStyle(
+                  fontFamily: AppTheme.headlineFontFamily,
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

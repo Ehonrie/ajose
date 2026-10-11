@@ -91,15 +91,23 @@ class _AutoSettleTickerState extends ConsumerState<AutoSettleTicker> with Widget
 
   Future<void> _check() async {
     if (!_resumed) return;
+    // Mounted but not actually visible — e.g. Home sitting underneath the
+    // active tab in MainShell's IndexedStack (see TickerMode there). Acting
+    // from here risks popping a dialog that collides with one the user is
+    // already interacting with on whichever tab they're actually looking
+    // at, which the framework doesn't tolerate well.
+    if (!TickerMode.valuesOf(context).enabled) return;
     final circle = widget.circle;
     if (circle.isComplete) return;
     if (!circle.currentRoundDeadline.isBefore(DateTime.now())) return;
-    // Nobody contributed this round at all — rather than auto-skip it (and
-    // burn the recipient's turn for nothing), leave it unsettled so the
-    // creator still has the option to cancel the circle instead. A round
-    // with at least one real contribution still settles automatically,
-    // disbursing whatever's there and moving the circle forward.
-    if (circle.membersPaidThisRound == 0) return;
+    // Nobody contributed this round at all. If the circle doesn't require
+    // collateral, there's nothing to fall back on — settling would just pay
+    // the recipient $0 and burn their turn for nothing, so leave it
+    // unsettled and let the creator cancel instead. A circle that *does*
+    // require collateral exists precisely to cover this case: settle_round
+    // pulls each non-payer's bond to fill the gap, so it's still worth
+    // attempting even with zero real contributions.
+    if (circle.membersPaidThisRound == 0 && !circle.requiresCollateral) return;
 
     final now = DateTime.now();
     final until = _cooldownUntil[circle.id];

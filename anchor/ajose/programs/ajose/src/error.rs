@@ -52,4 +52,6 @@ pub enum ErrorCode {
     CircleNotComplete,
     #[msg("This seat's collateral has already been claimed")]
     CollateralAlreadyClaimed,
+    #[msg("A circle can only be cancelled before any round has completed")]
+    CircleAlreadyRotated,
 }

@@ -36,12 +36,19 @@ class CircleDetailScreen extends ConsumerWidget {
               icon: const Icon(Icons.qr_code),
               onPressed: () => _showInviteSheet(context, circle),
             ),
-          if (circleAsync.value case final circle? when _canCancel(circle, session))
+          if (circleAsync.value case final circle?
+              when _canCancel(circle, session) || _canHide(circle, session))
             PopupMenuButton<String>(
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'cancel', child: Text('Cancel Circle')),
+                if (_canCancel(circle, session)) const PopupMenuItem(value: 'cancel', child: Text('Cancel Circle')),
+                if (_canHide(circle, session))
+                  const PopupMenuItem(value: 'hide', child: Text('Hide Circle')),
               ],
-              onSelected: (_) => _confirmCancelCircle(context, ref, circle, session!),
+              onSelected: (value) => switch (value) {
+                'cancel' => _confirmCancelCircle(context, ref, circle, session!),
+                'hide' => _confirmHideCircle(context, ref, circle),
+                _ => null,
+              },
             ),
         ],
       ),
@@ -117,13 +124,17 @@ class CircleDetailScreen extends ConsumerWidget {
   }
 
   /// Only the circle's creator (always seat 0) can cancel, and only before
-  /// any member has contributed — mirrors the on-chain program's own guard,
-  /// so this just decides whether to offer the action at all.
+  /// any round has settled — mirrors the on-chain program's own guard, so
+  /// this just decides whether to offer the action at all. Checking
+  /// [Circle.completedRounds] (not just current-round payment status)
+  /// matters because status resets to pending every round: once a round
+  /// has completed, a joining member's collateral is sitting in the bond
+  /// vault with no way to refund it back out through cancellation.
   bool _canCancel(Circle circle, WalletSession? session) {
     if (session == null || circle.members.isEmpty) return false;
     final isCreator = circle.members.first.pubkey == session.address;
     final alreadyFunded = circle.members.any((m) => m.status == MemberPaymentStatus.paid);
-    return isCreator && !alreadyFunded;
+    return isCreator && !alreadyFunded && circle.completedRounds == 0;
   }
 
   Future<void> _confirmCancelCircle(
@@ -183,6 +194,57 @@ class CircleDetailScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
+  }
+
+  /// Mirrors [AutoSettleTicker]'s own skip condition: a round that closed
+  /// with zero contributions AND no collateral to fall back on never
+  /// auto-settles (there's nothing to disburse). Once that's happened and
+  /// [_canCancel] is no longer true either — not the creator, or a round
+  /// already completed — there's genuinely no instruction left that can
+  /// ever close this circle. Hiding is the only way out: a local
+  /// dismissal, not an on-chain action. A collateral circle in the same
+  /// spot isn't included here since the ticker can still settle it by
+  /// pulling bonds to cover the shortfall.
+  bool _isUnrecoverablyStuck(Circle circle) {
+    final roundClosed = !circle.isComplete && !circle.currentRoundDeadline.isAfter(DateTime.now());
+    return roundClosed && circle.membersPaidThisRound == 0 && !circle.requiresCollateral;
+  }
+
+  bool _canHide(Circle circle, WalletSession? session) {
+    if (session == null) return false;
+    final hasSeat = circle.members.any((m) => m.pubkey == session.address);
+    if (!hasSeat) return false;
+    return _isUnrecoverablyStuck(circle) && !_canCancel(circle, session);
+  }
+
+  Future<void> _confirmHideCircle(BuildContext context, WidgetRef ref, Circle circle) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hide this circle?'),
+        content: Text(
+          '"${circle.name}" is stuck with no contributions and can no longer be '
+          "cancelled. Hiding removes it from your list on this device — it stays "
+          "on-chain, but you won't see it again here.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep Showing It'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Hide Circle'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(hiddenCircleIdsProvider.notifier).hide(circle.id);
+    ref.invalidate(myCirclesProvider);
+
+    if (context.mounted) Navigator.of(context).pop(); // back to Home
   }
 }
 
@@ -919,6 +981,14 @@ class _BottomCta extends ConsumerWidget {
     final me = circle.currentUserMember;
     final canClaimCollateral =
         circle.isComplete && me != null && !me.bondClaimed && me.bondRemainingUsdc > 0;
+    // The on-chain program rejects a contribution once the round's deadline
+    // passes — so once that happens, "Contribute This Round" would just
+    // fail on tap. A zero-contribution round still auto-settles if the
+    // circle requires collateral (see AutoSettleTicker, which pulls bonds
+    // to cover the gap); without collateral there's nothing to disburse, so
+    // it sits here until the creator cancels it.
+    final roundClosed = !circle.isComplete && !youPaid && !circle.currentRoundDeadline.isAfter(DateTime.now());
+    final isCreator = me != null && circle.members.isNotEmpty && circle.members.first.pubkey == me.pubkey;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
@@ -972,6 +1042,47 @@ class _BottomCta extends ConsumerWidget {
                     '(\$${circle.contributionAmountUsdc.toStringAsFixed(0)} USDC)',
                     style: textTheme.titleMedium?.copyWith(color: scheme.primary),
                   ),
+                ],
+              ),
+            )
+          else if (roundClosed)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lock_clock, color: scheme.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Round closed — no contribution landed in time',
+                          textAlign: TextAlign.center,
+                          style: textTheme.titleMedium?.copyWith(color: scheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (circle.membersPaidThisRound == 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      circle.requiresCollateral
+                          ? 'Nobody contributed this round — it\'ll settle automatically using '
+                              'posted collateral to cover the gap.'
+                          : isCreator
+                              ? 'Nobody contributed this round, so it won\'t settle on its own — '
+                                  'cancel this circle from the menu above if you\'d like to stop here.'
+                              : 'Nobody contributed this round, so it won\'t settle on its own.',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
                 ],
               ),
             )

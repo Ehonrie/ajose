@@ -53,11 +53,15 @@ pub struct CancelCircle<'info> {
 /// rather than before account validation — still safely blocks
 /// cancellation once anyone has paid, with no partial effects on failure.
 ///
-/// Only the creator's own collateral is ever in play here: joining already
-/// requires paying the first contribution atomically (see `join_circle`),
-/// which the payment-status guard below would already have blocked
-/// cancellation over — so by the time this can succeed, no other seat
-/// could possibly have posted a bond. Nothing to loop over.
+/// Only the creator's own collateral is ever refunded here, so this also
+/// requires `completed_rounds == 0`: per-round `status` resets to `Pending`
+/// every time a round settles (see `settle_round`), so the "nobody's paid
+/// yet" check alone isn't enough once a round has actually completed — a
+/// joining member's bond stays in `bond_vault` even though their `status`
+/// no longer shows `Paid`. Without this guard, `token::close_account` below
+/// fails on-chain because the vault still holds that member's collateral
+/// (there's no way to refund a seat's own bond to someone else's
+/// `authority_token_account`, and no other seat's ATA is in scope here).
 pub fn handler(ctx: Context<CancelCircle>) -> Result<()> {
     require!(
         ctx.accounts
@@ -67,6 +71,7 @@ pub fn handler(ctx: Context<CancelCircle>) -> Result<()> {
             .all(|seat| seat.status != MemberPaymentStatus::Paid),
         AjoseError::CircleAlreadyFunded
     );
+    require!(ctx.accounts.circle.completed_rounds == 0, AjoseError::CircleAlreadyRotated);
 
     let creator_wallet = ctx.accounts.circle.authority;
     let bond_remaining = ctx
@@ -128,6 +133,10 @@ mod tests {
     }
 
     fn test_circle(members: Vec<MemberSeat>) -> Circle {
+        test_circle_at_round(members, 0)
+    }
+
+    fn test_circle_at_round(members: Vec<MemberSeat>, completed_rounds: u16) -> Circle {
         Circle {
             authority: Pubkey::new_unique(),
             name: "Test circle".to_owned(),
@@ -139,7 +148,7 @@ mod tests {
             current_round_deadline: 2_000_000_000,
             vault_bump: 255,
             created_at: 1_000_000_000,
-            completed_rounds: 0,
+            completed_rounds,
             last_payout_recipient: None,
             last_payout_amount: 0,
             last_payout_at: None,
@@ -161,5 +170,20 @@ mod tests {
     fn cancelling_after_a_payment_is_blocked() {
         let circle = test_circle(vec![seat(MemberPaymentStatus::Paid), seat(MemberPaymentStatus::Pending)]);
         assert!(!circle.members.iter().all(|s| s.status != MemberPaymentStatus::Paid));
+    }
+
+    /// Once a round has settled, every seat's `status` resets away from
+    /// `Paid` (see `settle_round`) even though a joining member's bond is
+    /// still sitting in `bond_vault` — so the payment-status check alone
+    /// would wrongly allow cancelling a circle that already holds another
+    /// member's collateral, which `close_account` can't actually refund.
+    #[test]
+    fn cancelling_after_a_round_has_completed_is_blocked_even_with_no_one_paid() {
+        let circle = test_circle_at_round(
+            vec![seat(MemberPaymentStatus::Pending), seat(MemberPaymentStatus::Pending)],
+            1,
+        );
+        assert!(circle.members.iter().all(|s| s.status != MemberPaymentStatus::Paid));
+        assert_ne!(circle.completed_rounds, 0);
     }
 }

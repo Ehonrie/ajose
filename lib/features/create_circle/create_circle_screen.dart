@@ -89,8 +89,11 @@ class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _StepperHeader(scheme: scheme, textTheme: textTheme),
-            const SizedBox(height: 20),
+            // Commented out along with Step 2 (Invite Members) — a 1-of-2
+            // progress header reads oddly now that there's only one step.
+            // Re-enable together if Step 2 comes back.
+            // _StepperHeader(scheme: scheme, textTheme: textTheme),
+            // const SizedBox(height: 20),
             _RulesCard(
               scheme: scheme,
               textTheme: textTheme,
@@ -113,25 +116,29 @@ class _CreateCircleScreenState extends ConsumerState<CreateCircleScreen> {
               multiplier: _collateralMultiplier,
               onMultiplierChanged: (m) => setState(() => _collateralMultiplier = m),
             ),
-            const SizedBox(height: 16),
-            _InviteCard(
-              scheme: scheme,
-              textTheme: textTheme,
-              searchController: _searchController,
-              onSearchChanged: (v) {
-                setState(() => _search = v);
-                _ensureContactsLoaded();
-              },
-              onBrowseContacts: _ensureContactsLoaded,
-              loadingContacts: _loadingContacts,
-              memberCount: _memberCount,
-              confirmedContacts: _confirmedContacts,
-              confirmedContactIds: _confirmedContactIds,
-              suggestedContacts: _suggestedContacts,
-              contactsLoaded: _hasCheckedContacts && !_loadingContacts,
-              onRemoveConfirmed: (contact) => setState(() => _confirmedContactIds.remove(contact.id)),
-              onToggleAdd: (contact) => setState(() => _confirmedContactIds.add(contact.id ?? '')),
-            ),
+            // Step 2 (Invite Members / Add Contacts) — commented out, not
+            // deleted, per request. Re-enable by uncommenting this block
+            // (and the matching "2" badge in _StepperHeader if it should
+            // come back too).
+            // const SizedBox(height: 16),
+            // _InviteCard(
+            //   scheme: scheme,
+            //   textTheme: textTheme,
+            //   searchController: _searchController,
+            //   onSearchChanged: (v) {
+            //     setState(() => _search = v);
+            //     _ensureContactsLoaded();
+            //   },
+            //   onBrowseContacts: _ensureContactsLoaded,
+            //   loadingContacts: _loadingContacts,
+            //   memberCount: _memberCount,
+            //   confirmedContacts: _confirmedContacts,
+            //   confirmedContactIds: _confirmedContactIds,
+            //   suggestedContacts: _suggestedContacts,
+            //   contactsLoaded: _hasCheckedContacts && !_loadingContacts,
+            //   onRemoveConfirmed: (contact) => setState(() => _confirmedContactIds.remove(contact.id)),
+            //   onToggleAdd: (contact) => setState(() => _confirmedContactIds.add(contact.id ?? '')),
+            // ),
             const SizedBox(height: 16),
             _TrustNotice(scheme: scheme, textTheme: textTheme, memberCount: _memberCount),
             const SizedBox(height: 20),

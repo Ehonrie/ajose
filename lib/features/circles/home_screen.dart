@@ -1,10 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants.dart';
 import '../../core/auto_settle_ticker.dart';
 import '../../core/countdown_text.dart';
 import '../../core/date_formatting.dart';
@@ -19,12 +17,8 @@ import '../contribute/contribute_screen.dart';
 import '../create_circle/create_circle_screen.dart';
 import '../join_circle/join_circle_screen.dart';
 import '../join_circle/qr_scan_screen.dart';
-import '../notifications/notifications_screen.dart';
-import '../onboarding/onboarding_screen.dart';
-import '../savings/savings_screen.dart';
 import 'circle_detail_screen.dart';
 import 'history_screen.dart';
-import 'send_sol_sheet.dart';
 
 String _frequencyLabel(ContributionFrequency f) => switch (f) {
       ContributionFrequency.weekly => 'weekly',
@@ -58,11 +52,20 @@ Future<void> _showEnterCodeDialog(BuildContext context) async {
         controller: controller,
         autofocus: true,
         decoration: const InputDecoration(hintText: 'Paste the circle\'s address'),
-        onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        // Unfocusing before the pop keeps the keyboard's dismiss-driven
+        // rebuild from racing the Navigator tearing this dialog down in the
+        // same frame — that race is what throws '_dependents.isEmpty'.
+        onSubmitted: (value) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          Navigator.of(dialogContext).pop(value);
+        },
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
+          onPressed: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.of(dialogContext).pop();
+          },
           child: const Text('Cancel'),
         ),
         FilledButton(
@@ -70,7 +73,10 @@ Future<void> _showEnterCodeDialog(BuildContext context) async {
             minimumSize: Size.zero,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           ),
-          onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+          onPressed: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.of(dialogContext).pop(controller.text);
+          },
           child: const Text('Preview'),
         ),
       ],
@@ -208,15 +214,6 @@ class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.alarm),
             onPressed: () => _sendReminder(context, ref),
           ),
-          IconButton(
-            tooltip: 'Wallet',
-            icon: CircleAvatar(
-              radius: 16,
-              backgroundColor: scheme.primaryContainer,
-              child: Icon(Icons.person, size: 18, color: scheme.onPrimary),
-            ),
-            onPressed: () => _showWalletSheet(context, ref, session),
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -244,14 +241,19 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CreateCircleScreen()),
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('New Circle'),
-      ),
-      bottomNavigationBar: const _BottomNav(),
+      // The empty state already has its own prominent "Create a Circle"
+      // button, so a FAB offering the same action is redundant noise on
+      // top of it — only show the FAB once there's at least one active
+      // circle to want a quick "add another" shortcut for.
+      floatingActionButton: (circlesAsync.value ?? const []).any((c) => !c.isComplete)
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CreateCircleScreen()),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('New Circle'),
+            )
+          : null,
     );
   }
 
@@ -272,172 +274,9 @@ class HomeScreen extends ConsumerWidget {
     }
   }
 
-  /// A blank/whitespace-only name clears the preference (falls back to the
-  /// truncated address) rather than being rejected — same "nothing set"
-  /// semantics [ProfileService.setDisplayName] already applies.
-  Future<void> _showEditNameDialog(BuildContext context, WidgetRef ref, String? currentName) async {
-    final controller = TextEditingController(text: currentName ?? '');
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Your Name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'e.g. Ada'),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
-
-    if (name == null) return;
-    await ref.read(displayNameProvider.notifier).setName(name);
-  }
-
-  void _showWalletSheet(BuildContext rootContext, WidgetRef ref, WalletSession session) {
-    showModalBottomSheet<void>(
-      context: rootContext,
-      builder: (sheetContext) => Consumer(
-        builder: (context, ref, _) {
-          final balancesAsync = ref.watch(walletBalancesProvider);
-          final scheme = Theme.of(context).colorScheme;
-          final textTheme = Theme.of(context).textTheme;
-
-          final displayName = ref.watch(displayNameProvider).value;
-
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.account_balance_wallet, color: scheme.primary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(displayName ?? session.truncatedAddress, style: textTheme.titleMedium),
-                            Text(AppConfig.cluster.label, style: textTheme.bodySmall),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Edit name',
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () => _showEditNameDialog(context, ref, displayName),
-                      ),
-                      IconButton(
-                        tooltip: 'Copy address',
-                        icon: const Icon(Icons.copy, size: 20),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: session.address));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Address copied')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 32),
-                  balancesAsync.when(
-                    data: (balances) => Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _BalanceStat(label: 'SOL', value: balances == null ? '—' : balances.sol.toStringAsFixed(4)),
-                        _BalanceStat(
-                          label: 'USDC (devnet)',
-                          value: balances == null ? '—' : balances.usdcOrZero.toStringAsFixed(2),
-                        ),
-                      ],
-                    ),
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: LinearProgressIndicator(),
-                    ),
-                    error: (e, _) => Text(
-                      'Balance fetch failed: $e',
-                      style: TextStyle(color: scheme.error),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        SendSolSheet.show(rootContext, session);
-                      },
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Send SOL'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        _disconnect(rootContext, ref);
-                      },
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Disconnect Wallet'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _disconnect(BuildContext context, WidgetRef ref) async {
-    await ref.read(walletSessionProvider.notifier).disconnect();
-    if (context.mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-        (route) => false,
-      );
-    }
-  }
-}
-
-class _BalanceStat extends StatelessWidget {
-  const _BalanceStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
+  // Display-name editing, balances, Send SOL, and Disconnect now live in
+  // features/profile/profile_screen.dart — a full tab (Profile, replacing
+  // Alerts on the bottom nav) rather than a sheet triggered from here.
 }
 
 class _HomeBody extends StatelessWidget {
@@ -608,7 +447,12 @@ class _GreetingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final totalRotating = circles.fold<double>(0, (sum, c) => sum + c.potTotalUsdc);
+    // "Total Saved & Rotating" is meant to be the whole picture — what's
+    // cycling through circles plus what's set aside in savings targets —
+    // not circles alone.
+    final savingsTargets = ref.watch(mySavingsTargetsProvider).value ?? const [];
+    final totalSavings = savingsTargets.fold<double>(0, (sum, t) => sum + t.balanceUsdc);
+    final totalRotating = circles.fold<double>(0, (sum, c) => sum + c.potTotalUsdc) + totalSavings;
     final weeklyFlow = circles
         .where((c) => c.frequency == ContributionFrequency.weekly)
         .fold<double>(0, (sum, c) => sum + c.contributionAmountUsdc);
@@ -819,6 +663,10 @@ class _FeaturedCircleCard extends StatelessWidget {
     // hierarchy on this screen comes from restraint elsewhere, not from
     // every card sharing the same generic treatment.
     final youPaid = circle.currentUserMember?.hasPaidCurrentRound ?? false;
+    // Same "the deadline passed and contribute would now fail on-chain"
+    // case as CircleDetailScreen's bottom CTA — the card's own button needs
+    // to stop inviting a doomed tap too.
+    final roundClosed = !circle.isComplete && !youPaid && !circle.currentRoundDeadline.isAfter(DateTime.now());
     return Material(
       color: scheme.surfaceCard,
       borderRadius: BorderRadius.circular(24),
@@ -879,10 +727,12 @@ class _FeaturedCircleCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Next Pot Payout',
+                            roundClosed ? 'Round Closed' : 'Next Pot Payout',
                             style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                           ),
-                          CountdownText(circle.currentRoundDeadline, style: textTheme.labelLarge),
+                          roundClosed
+                              ? Text('No contribution landed in time', style: textTheme.labelLarge)
+                              : CountdownText(circle.currentRoundDeadline, style: textTheme.labelLarge),
                         ],
                       ),
                     ),
@@ -894,12 +744,12 @@ class _FeaturedCircleCard extends StatelessWidget {
                       ),
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => youPaid
+                          builder: (_) => (youPaid || roundClosed)
                               ? CircleDetailScreen(circleId: circle.id)
                               : ContributeScreen(circle: circle),
                         ),
                       ),
-                      child: youPaid
+                      child: (youPaid || roundClosed)
                           ? const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1246,105 +1096,6 @@ class _InviteCard extends StatelessWidget {
   }
 }
 
-class _BottomNav extends StatelessWidget {
-  const _BottomNav();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceCard,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, -2)),
-        ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.group_work,
-                label: 'Circles',
-                selected: true,
-                scheme: scheme,
-                onTap: () {},
-              ),
-              _NavItem(
-                icon: Icons.dynamic_feed,
-                label: 'Activity',
-                selected: false,
-                scheme: scheme,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                ),
-              ),
-              _NavItem(
-                icon: Icons.savings_rounded,
-                label: 'Savings',
-                selected: false,
-                scheme: scheme,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SavingsScreen()),
-                ),
-              ),
-              _NavItem(
-                icon: Icons.notifications,
-                label: 'Alerts',
-                selected: false,
-                scheme: scheme,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.scheme,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final ColorScheme scheme;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// The bottom nav itself now lives in `features/shell/main_shell.dart` —
+// it needs to be shared across tabs (and track which one's actually
+// showing), which a widget private to this file's own Scaffold couldn't do.

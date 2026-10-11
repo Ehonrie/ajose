@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme.dart';
-import '../circles/home_screen.dart';
+import '../shell/main_shell.dart';
 
 /// First screen a user with no active wallet session sees. A single
 /// "Connect Wallet" button drives the whole MWA authorize() round trip via
@@ -22,7 +22,7 @@ class OnboardingScreen extends ConsumerWidget {
     ref.listen(walletSessionProvider, (previous, next) {
       if (next.hasValue && next.value != null) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const MainShell()),
         );
       }
     });

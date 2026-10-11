@@ -300,8 +300,9 @@ class AnchorService {
   /// Builds a `cancel_circle` transaction, closing the circle account and
   /// refunding its rent to [authority] — along with any collateral the
   /// creator posted for their own seat, and the (now-empty) bond vault's
-  /// own rent. The program itself rejects this once any member has paid —
-  /// this is just the instruction call, not an extra client-side guard.
+  /// own rent. The program itself rejects this once any member has paid,
+  /// or once any round has completed — this is just the instruction call,
+  /// not an extra client-side guard.
   Future<List<int>> buildCancelCircleTransaction({
     required Ed25519HDPublicKey authority,
     required String circleId,
